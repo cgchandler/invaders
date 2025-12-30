@@ -1,0 +1,35 @@
+# -------------------------------------
+# Build artifacts from Oscar64 compiler
+# -------------------------------------
+
+# Assembly output
+*.asm
+*.int
+*.lbl
+*.map
+
+# PRG or binary outputs (optional, remove if you DO want these committed)
+*.prg
+#*.bin 	# charset in a .bin file
+
+# -------------------------------------
+# Editor / OS generated files
+# -------------------------------------
+*.bak
+*.tmp
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# VS Code
+.vscode/
+
+# -------------------------------------
+# Logs
+# -------------------------------------
+*.log
