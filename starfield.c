@@ -5,7 +5,7 @@
 extern byte* const Color;
 
 #define TOP_ROW     1
-#define BOTTOM_ROW  22
+#define BOTTOM_ROW  20
 #define SCREEN_COLS 40
 #define STAR_FRAMES 8
 #define STAR_OFF    32 
