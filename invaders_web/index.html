@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <title>Commodore 64 Invaders</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            color: #fff;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        /* Normal document flow: header, emulator, footer stacked */
+        body {
+            text-align: center;
+            padding-top: 1rem;
+            padding-bottom: 0.75rem;
+        }
+
+        header {
+            margin-bottom: 0.75rem;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 1.8rem;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+        }
+
+        /* Emulator wrapper: responsive, keeps 4:3, but does NOT force page height */
+        .emulator-wrapper {
+            /* Width is limited by:
+            - 90% of viewport width
+            - 80% of viewport height converted to width at 4:3
+            - 960px on large monitors
+            This keeps the height <= 80vh and maintains 4:3.
+            */
+            width: min(90vw, 90vh * 4 / 3, 960px);
+            aspect-ratio: 4 / 3;
+            margin: 0 auto 0.75rem auto;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #111;
+            border-radius: 8px;
+            box-shadow: 0 0 18px rgba(255, 255, 255, 0.18);
+        }
+
+        /* If you still want to cap the emulator to 80% viewport height, add: */
+        @media (min-aspect-ratio: 4/3) {
+            .emulator-wrapper {
+                max-height: 80vh;
+            }
+        }
+
+        /* Canvas fills the wrapper, pixels stay crisp */
+        #c64-canvas {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            padding: 0;
+            display: block;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+
+        footer {
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+
+        footer a {
+            color: #fff;
+            text-decoration: none;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.6);
+        }
+
+        footer a:hover {
+            border-bottom-color: #fff;
+        }
+
+        /* Click to start overlay (needed so browsers allow AudioContext) */
+        #start-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            gap: 1rem;
+            z-index: 10;
+        }
+
+        #start-overlay button {
+            padding: 0.6rem 1.2rem;
+            font-size: 1rem;
+            border-radius: 4px;
+            border: 1px solid #fff;
+            background: #222;
+            color: #fff;
+            cursor: pointer;
+        }
+
+        #start-overlay button:hover {
+            background: #444;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Commodore 64 Invaders</h1>
+    </header>
+
+    <div class="emulator-wrapper">
+        <!-- Internal resolution; CSS scales it responsively -->
+        <canvas id="c64-canvas" width="384" height="288"></canvas>
+    </div>
+
+    <footer>
+        <a href="invaders.prg">Download invaders.prg Commodore 64 program</a>
+        <br>
+        <a href="https://github.com/cgchandler/invaders" target="_blank" rel="noopener noreferrer">
+            View source on GitHub
+        </a>
+    </footer>
+
+    <!-- Click to start overlay -->
+    <div id="start-overlay">
+        <div>Click to start Commodore 64 Invaders</div>
+        <button type="button" onclick="startEmulator()">Start</button>
+    </div>
+
+    <script type="text/javascript">
+        function audioDetected() {
+            return (typeof Audio === 'function' && new Audio().mozSetup === 'function') ||
+                   (typeof AudioContext === 'function') ||
+                   (typeof webkitAudioContext === 'function');
+        }
+
+        // Will be set when the user clicks Start, before x64.js loads
+        var Module = null;
+
+        function loadInvadersPrg() {
+            console.log('Fetching invaders.prg...');
+
+            addRunDependency('invaders-prg');
+
+            fetch('invaders.prg')
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Failed to fetch invaders.prg: ' + response.status);
+                    }
+                    return response.arrayBuffer();
+                })
+                .then(function (buffer) {
+                    var bytes = new Uint8Array(buffer);
+                    console.log('invaders.prg size:', bytes.length, 'bytes');
+
+                    FS.createDataFile(
+                        '/',
+                        'invaders.prg',
+                        bytes,
+                        true,
+                        true
+                    );
+
+                    console.log('invaders.prg created in FS:', FS.readdir('/'));
+                    removeRunDependency('invaders-prg');
+                })
+                .catch(function (err) {
+                    console.error('Error loading invaders.prg:', err);
+                    removeRunDependency('invaders-prg');
+                });
+        }
+
+        function startEmulator() {
+            // Avoid double start
+            if (Module !== null) {
+                return;
+            }
+
+            // Hide overlay now that we have a user gesture
+            document.getElementById('start-overlay').style.display = 'none';
+
+            // Build arguments, with sound enabled on capable browsers
+            var soundArgs = audioDetected()
+                ? ['-soundsync', 0, '-soundrate', 22050, '-soundfragsize', 2, "-soundbufsize", 200]
+                : ['+sound'];            
+
+            var viceArguments = soundArgs.concat([
+                '-autostartprgmode', '1',
+                '-autostart', 'invaders.prg'
+            ]);
+
+            console.log('VICE args:', viceArguments);
+
+            Module = {
+                preRun: [loadInvadersPrg],
+                arguments: viceArguments,
+                canvas: document.getElementById('c64-canvas'),
+                onRuntimeInitialized: function () {
+                    console.log('VICE.js runtime initialized');
+                }
+            };
+
+            // Dynamically load the emulator after the click so audio is allowed
+            var script = document.createElement('script');
+            script.src = 'js/x64.js';
+            script.async = true;
+            document.body.appendChild(script);
+        }
+    </script>
+</body>
+</html>

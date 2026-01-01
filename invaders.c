@@ -201,7 +201,7 @@ void game_over(void) {
 
 int main(void)
 {
-    vic.color_border = VCOL_DARK_GREY;
+    vic.color_border = VCOL_BLACK;
     vic.color_back   = VCOL_BLACK;
 
     screen_init();
