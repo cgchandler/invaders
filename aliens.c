@@ -17,6 +17,8 @@
 
 extern unsigned int g_player_x; 
 
+extern void game_over(void);
+
 // --- LOOKUP TABLES ---
 // FIX: Expanded table to 32 entries to prevent overflow when aliens hit bottom
 static const unsigned short g_row_offsets[32] = {
@@ -62,6 +64,7 @@ static int g_next_dir = 1;
 static int g_state = 0;     
 static unsigned char g_anim_frame = 0;
 static unsigned char g_timer = 0;
+static unsigned char g_current_delay = 0;
 
 static unsigned char g_render_dirty = 1; 
 
@@ -115,12 +118,30 @@ void aliens_update(void) {
 
     sfx_march();
 
+    /*
     unsigned char safe_count = g_alive_count;
     if (safe_count > 55) safe_count = 55; 
 
     //g_timer = SPEED_TABLE[g_alive_count];
     g_timer = safe_count + 1 - (g_level - 1);   // linear speed instead of table lookup
     if (g_timer < 2) {g_timer = 2;}
+    */
+
+    unsigned char safe_count = g_alive_count;
+    if (safe_count > 55) safe_count = 55; 
+    
+    // Calculate speed deduction based on level
+    int level_bonus = g_level - 1;
+    if (level_bonus > 50) level_bonus = 50; 
+    
+    int calc_speed = safe_count + 1 - level_bonus;
+    if (calc_speed < 2) calc_speed = 2;
+    
+    // STORE IT so we can debug it without recalculating
+    g_current_delay = (unsigned char)calc_speed; 
+    g_timer = g_current_delay;
+
+    
     g_render_dirty = 1;       
 
     g_anim_frame ^= 1;
@@ -160,12 +181,14 @@ void aliens_update(void) {
         g_dir = g_next_dir;
         g_state = 0; 
 
+        // Check if ANY active alien has hit the bottom
         for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
              if (!g_aliens[i].active) continue;
              int alien_y = g_grid_y + g_aliens[i].rel_y;
 
              if (alien_y >= COLLIDE_ROW) {
-                 player_die();
+                 // If they hit the ground, the base is lost regardless of lives.
+                 game_over(); 
                  return; 
              }
         }
@@ -301,4 +324,50 @@ void aliens_reset(void) {
     }
     g_alive_count = TOTAL_ALIENS;
     g_render_dirty = 1;
+}
+
+// Helper to find a random active alien for bomb dropping
+int aliens_get_random_shooter(int* out_x, int* out_y) {
+    if (g_alive_count == 0) return 0;
+    
+    // Pick a random index from the survivors
+    int pick = rand() % g_alive_count;
+    int current = 0;
+    
+    for (int i = 0; i < TOTAL_ALIENS; i++) {
+        if (g_aliens[i].active) {
+            if (current == pick) {
+                // Found the chosen one! 
+                // Convert Grid Coordinates to Screen Pixels for the sprite.
+                // C64 Standard Screen Text Area starts at X=24, Y=50 (approx)
+                // We add +12 to X to center the bomb on the 2-char wide alien.
+                
+                *out_x = (g_grid_x + g_aliens[i].rel_x) * 8 + 24 + 4; 
+                *out_y = (g_grid_y + g_aliens[i].rel_y) * 8 + 50 + 16; 
+                return 1;
+            }
+            current++;
+        }
+    }
+    return 0;
+}
+
+// ... end of aliens.c ...
+
+// DEBUG: Display current speed (Delay Frames) on bottom right
+void aliens_debug_speed(void) {
+    // 1. Get the digits from our stored setting
+    unsigned char tens = g_current_delay / 10;
+    unsigned char ones = g_current_delay % 10;
+    
+    // 2. Draw at Row 24, Columns 38-39 (Right Aligned)
+    unsigned short offset = 960 + 38;
+    
+    // Draw Digits
+    Screen[offset]     = tens + 48; 
+    Screen[offset + 1] = ones + 48; 
+    
+    // Force White Color
+    Color[offset]     = VCOL_WHITE;
+    Color[offset + 1] = VCOL_WHITE;
 }

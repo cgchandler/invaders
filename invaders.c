@@ -6,15 +6,19 @@
 #include "aliens.h"
 #include "player.h"
 #include "missile.h"
+#include "bombs.h"
 #include "sounds.h"
+#include "gameover.h"
 
 // Access to Score in invaders.c
 extern unsigned int g_score;
+static unsigned int g_next_life_score = 1500;
 extern void update_score_display(void);
 extern void update_lives_display(void);
 
 // --- GAME STATE ---
-extern unsigned char g_lives = 3;
+extern unsigned char g_lives;
+extern unsigned char g_default_lives;
 unsigned char g_max_lives = 18;
 unsigned char g_level = 1;
 
@@ -67,16 +71,33 @@ unsigned int g_score = 0; // Global Score (0 - 65535)
 // NOT static, so aliens.c can call it.
 void update_score_display(void)
 {
-    unsigned int temp = g_score;
-    unsigned short offset = 18; // Approx center of top row
 
-    // Extract digits (Ten-Thousands down to Ones)
+    if (g_score >= g_next_life_score) {
+        
+        // Increment Threshold (1500 -> 3000 -> 4500)
+        g_next_life_score += 1500;
+
+        // 2. Add Life (Respect Max)
+        if (g_lives < g_max_lives) {
+            g_lives++;
+            update_lives_display(); // Refresh the hearts/ships
+            
+            // Play a sound for the reward!
+            sfx_high_score(); 
+        }
+    }
+
+    unsigned int temp = g_score;
+    unsigned short offset = 17; // Approx center of top row
+
+    // Extract digits (100-Thousands down to Ones)
     // 0 + 48 is ASCII '0'
-    Screen[offset]     = 48 + (unsigned char)((temp / 10000) % 10);
-    Screen[offset + 1] = 48 + (unsigned char)((temp / 1000) % 10);
-    Screen[offset + 2] = 48 + (unsigned char)((temp / 100) % 10);
-    Screen[offset + 3] = 48 + (unsigned char)((temp / 10) % 10);
-    Screen[offset + 4] = 48 + (unsigned char)(temp % 10);
+    Screen[offset]     = 48 + (unsigned char)((temp / 100000) % 10);
+    Screen[offset + 1] = 48 + (unsigned char)((temp / 10000) % 10);
+    Screen[offset + 2] = 48 + (unsigned char)((temp / 1000) % 10);
+    Screen[offset + 3] = 48 + (unsigned char)((temp / 100) % 10);
+    Screen[offset + 4] = 48 + (unsigned char)((temp / 10) % 10);
+    Screen[offset + 5] = 48 + (unsigned char)(temp % 10);
 
     // Set Color to White
     for(int i=0; i<5; i++) Color[offset + i] = VCOL_WHITE;
@@ -177,15 +198,19 @@ void clear_playfield(void) {
 
 // This handles the "Hard Reset" when lives == 0
 void game_over(void) {
+
+    game_over_sequence();
+
     // 1. Reset Game State
     g_score = 0;
+    g_next_life_score = 1500;
     update_score_display();
     
     g_level = 1;
     update_level();
     
-    g_lives = 3;
-    
+    g_lives = g_default_lives;
+
     update_lives_display();
 
     // 2. Clean Visuals
@@ -199,8 +224,8 @@ void game_over(void) {
     player_reset_position();
 }
 
-int main(void)
-{
+void game_init(void) {
+
     vic.color_border = VCOL_BLACK;
     vic.color_back   = VCOL_BLACK;
 
@@ -219,6 +244,15 @@ int main(void)
     aliens_init(Screen);
     player_init();
     missile_init();
+    bombs_init();
+
+    g_lives = g_default_lives;
+}
+
+int main(void)
+{
+    // Initialize screen and variables
+    game_init();
 
     for (;;)
     {
@@ -227,6 +261,9 @@ int main(void)
         aliens_update();
         player_update();
         missile_update();
+        bombs_update();
+        aliens_debug_speed(); // <--- Comment this out later!
+
 
         // --- LEVEL COMPLETION CHECK ---
         if (aliens_cleared()) {
@@ -246,6 +283,8 @@ int main(void)
             // Kill active missile so you don't instantly snipe a new alien
             missile_init(); 
             
+            bombs_init();
+
             // Refresh the 
             // Brief delay could go here
         }
@@ -258,6 +297,7 @@ int main(void)
         aliens_render(Screen);       
         player_render();
         missile_render();
+        bombs_render();
         //vic.color_border = VCOL_BLACK;
     }
 

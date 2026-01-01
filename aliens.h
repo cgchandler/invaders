@@ -24,4 +24,10 @@ void aliens_reset(void);  // Resets positions and brings aliens back to life
 
 extern unsigned char g_alive_count;
 
+// Returns 1 if a shooter was found, populating x/y with pixel coordinates
+int aliens_get_random_shooter(int* out_x, int* out_y);
+
+// Debug
+void aliens_debug_speed(void);
+
 #endif
