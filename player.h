@@ -12,4 +12,8 @@ void player_update(void);
 // Call this in your "Render Phase" (VBlank)
 void player_render(void);
 
+void player_die(void);
+
+void player_reset_position(void);
+
 #endif

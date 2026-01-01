@@ -19,6 +19,9 @@ void aliens_render(byte* screen);
 // Returns 1 if hit, 0 if miss. Handles destroying the alien.
 int aliens_check_hit(unsigned char col, unsigned char row);
 
+int aliens_cleared(void); // Returns 1 if count is 0
+void aliens_reset(void);  // Resets positions and brings aliens back to life
+
 extern unsigned char g_alive_count;
 
 #endif

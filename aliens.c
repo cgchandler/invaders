@@ -4,32 +4,40 @@
 #include <c64/types.h>
 
 // --- CONFIGURATION ---
-#define START_ROW       4
-#define COLLIDE_ROW     22
+#define START_ROW       2
+#define START_COL       2
+#define COLLIDE_ROW     23
 #define DROP_ROWS       1
 #define ALIENS_PER_ROW  11
 #define NUM_ROWS        5
-#define MOVEMENT_DELAY  20  // Frames to wait before moving (Speed)
+#define MOVEMENT_DELAY  20  
+#define PLAYER_HIT_ROW  22   
 
 #define TOTAL_ALIENS    (NUM_ROWS * ALIENS_PER_ROW)
 
+extern unsigned int g_player_x; 
+
 // --- LOOKUP TABLES ---
-// Duplicated here to allow compiler optimizations (Zero Page access potential)
-static const unsigned short g_row_offsets[26] = {
+// FIX: Expanded table to 32 entries to prevent overflow when aliens hit bottom
+static const unsigned short g_row_offsets[32] = {
     0,   40,  80,  120, 160, 200, 240, 280, 320, 360,
     400, 440, 480, 520, 560, 600, 640, 680, 720, 760,
-    800, 840, 880, 920, 960, 1000
+    800, 840, 880, 920, 960, 1000, 
+    1040, 1080, 1120, 1160, 1200, 1240 // Safety padding
 };
 
-// Alien Definitions (2 chars per frame)
-// Structure: [Type][Frame][LeftChar, RightChar]
 static const unsigned char ALIEN_CHARS[3][2][2] = {
-    // Type 0 (Top): 132, 133 / 138, 139
     { {132, 133}, {138, 139} },
-    // Type 1 (Mid): 130, 131 / 136, 137
     { {130, 131}, {136, 137} },
-    // Type 2 (Bot): 128, 129 / 134, 135
     { {128, 129}, {134, 135} }
+};
+
+static const unsigned char SPEED_TABLE[57] = {
+    2, 2, 2, 3, 3, 4, 4, 5, 5, 6,       
+    6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 
+    13, 13, 14, 14, 15, 16, 17, 18, 19, 20, 21, 22, 
+    24, 26, 28, 29, 30, 30, 31, 32, 33, 34, 35, 36, 
+    37, 38, 39, 40, 41, 42, 43, 44, 45, 56                      
 };
 
 // --- STATE ---
@@ -44,39 +52,31 @@ struct Alien {
 static struct Alien g_aliens[TOTAL_ALIENS];
 unsigned char g_alive_count = TOTAL_ALIENS;
 
-// Grid Position (Top-Left of the swarm)
-static int g_grid_x = 0;
+static int g_grid_x = START_COL;
 static int g_grid_y = START_ROW;
-static int g_old_grid_x = 0;
+static int g_old_grid_x = START_COL;
 static int g_old_grid_y = START_ROW;
 
-// Movement State
-static int g_dir = 1;       // 1 = Right, -1 = Left
-static int g_next_dir = 1;  // Used during drop state
-static int g_state = 0;     // 0=Move Horiz, 1=Drop Down
+static int g_dir = 1;       
+static int g_next_dir = 1;  
+static int g_state = 0;     
 static unsigned char g_anim_frame = 0;
 static unsigned char g_timer = 0;
 
-// Render State
-static unsigned char g_render_dirty = 1; // 1 = Redraw needed
+static unsigned char g_render_dirty = 1; 
 
 // --- LOGIC ---
 
 void aliens_init(byte* screen) {
     g_alive_count = 0;
-    g_grid_x = 2; 
+    g_grid_x = START_COL; 
     g_grid_y = START_ROW;
     g_dir = 1;
     g_timer = MOVEMENT_DELAY;
     g_render_dirty = 1;
 
-    // Define colors for Rows 0 through 4
     static const unsigned char ROW_COLORS[5] = {
-        VCOL_LT_RED, // Top Row
-        VCOL_YELLOW, // Second Row
-        VCOL_GREEN,  // Third Row
-        VCOL_PURPLE, // Fourth Row
-        VCOL_CYAN    // Bottom Row
+        VCOL_LT_RED, VCOL_YELLOW, VCOL_GREEN, VCOL_PURPLE, VCOL_CYAN
     };
 
     unsigned char i = 0;
@@ -87,13 +87,9 @@ void aliens_init(byte* screen) {
         else if (r < 3) type = 1;  
         else type = 2;             
 
-        // Grab the color for this row
         unsigned char row_color = ROW_COLORS[r];
 
-        // FIX: Only loop for the number of aliens in THIS ROW
         for (unsigned char c = 0; c < ALIENS_PER_ROW; c++) {
-            
-            // Safety check (optional but good for debugging)
             if (i >= TOTAL_ALIENS) break; 
 
             g_aliens[i].active = 1;
@@ -109,23 +105,26 @@ void aliens_init(byte* screen) {
 }
 
 void aliens_update(void) {
-    // 1. Commit positions for Render (The "Old" pos becomes current render pos)
     g_old_grid_x = g_grid_x;
     g_old_grid_y = g_grid_y;
 
-    // 2. Wait for Timer
     if (g_timer > 0) {
         g_timer--;
         return; 
     }
-    g_timer = MOVEMENT_DELAY; // Reset timer
-    g_render_dirty = 1;       // Flag that we moved
 
-    // 3. Animation Toggle
+    sfx_march();
+
+    unsigned char safe_count = g_alive_count;
+    if (safe_count > 55) safe_count = 55; 
+
+    //g_timer = SPEED_TABLE[g_alive_count];
+    g_timer = safe_count + 1 - (g_level - 1);   // linear speed instead of table lookup
+    if (g_timer < 2) {g_timer = 2;}
+    g_render_dirty = 1;       
+
     g_anim_frame ^= 1;
 
-    // 4. Calculate Edges of the ACTIVE swarm
-    // We only care about edges if moving horizontally
     if (g_state == 0) {
         int min_x = 100;
         int max_x = -100;
@@ -133,55 +132,65 @@ void aliens_update(void) {
         for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
             if (!g_aliens[i].active) continue;
             
-            // Calculate Global X for this alien
             int ax = g_grid_x + g_aliens[i].rel_x;
             if (ax < min_x) min_x = ax;
             if (ax > max_x) max_x = ax;
         }
 
-        // 5. Check Collisions
-        if (g_dir == 1) { // Moving Right
-            // Right edge of alien is x+1. Screen edge is 39.
+        if (g_dir == 1) { 
             if (max_x >= 38) { 
-                g_state = 1; // Switch to Drop State
-                g_next_dir = -1;
+                g_state = 1; 
+                g_next_dir = -1; 
             } else {
                 g_grid_x++;
             }
-        } 
-        else { // Moving Left
+        } else { 
             if (min_x <= 0) {
-                g_state = 1; // Switch to Drop State
-                g_next_dir = 1;
+                g_state = 1; 
+                g_next_dir = 1; 
             } else {
                 g_grid_x--;
             }
         }
     } 
-else {
-        // 6. Drop Down Logic
-        g_grid_y += DROP_ROWS;
+    else {
+        if (g_grid_y < COLLIDE_ROW) {
+            g_grid_y += DROP_ROWS;
+        }
         g_dir = g_next_dir;
-        g_state = 0; // Resume Horizontal
+        g_state = 0; 
 
-        // *** FIX: Check if ANY active alien has hit the bottom ***
         for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
              if (!g_aliens[i].active) continue;
-
-             // Calculate absolute Y for this specific alien
              int alien_y = g_grid_y + g_aliens[i].rel_y;
 
              if (alien_y >= COLLIDE_ROW) {
-                 // RESTART GAME
-                 // Reset grid to top
-                 g_grid_y = START_ROW;
-                 g_grid_x = 2; // Reset X too or they might be stuck at edge
-                 
-                 // If you want to respawn dead aliens, call aliens_init(Screen) here.
-                 // For now, we just loop the current survivors to the top:
+                 player_die();
                  return; 
              }
         }
+    }
+
+    int p_pixel_x = g_player_x;
+    if (p_pixel_x < 24) p_pixel_x = 24;
+
+    int p_col_start = (p_pixel_x - 24) / 8;
+    int p_col_end   = (p_pixel_x - 24 + 23) / 8; 
+
+    for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
+         if (!g_aliens[i].active) continue;
+
+         int alien_y = g_grid_y + g_aliens[i].rel_y;
+         int alien_x = g_grid_x + g_aliens[i].rel_x; 
+
+         if (alien_y >= PLAYER_HIT_ROW) {
+             int alien_right = alien_x + 1;
+             
+             if (alien_x <= p_col_end && alien_right >= p_col_start) {
+                 player_die();
+                 return;
+             }
+         }
     }
 }
 
@@ -191,25 +200,19 @@ void aliens_render(byte* screen) {
     if (!g_render_dirty) return;
     g_render_dirty = 0;
 
-    // 1. Erase at OLD position
     for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
         if (!g_aliens[i].active) continue;
         
-        // Safety check
         unsigned short r = g_old_grid_y + g_aliens[i].rel_y;
-        if (r > 24) continue; 
+        if (r >= 23) continue; 
 
+        // Use safe offset calculation or ensure r < 32
         unsigned short offset = g_row_offsets[r] + g_old_grid_x + g_aliens[i].rel_x;
         
-        // Erase Characters
         screen[offset] = ' '; 
         screen[offset + 1] = ' ';
-        
-        // OPTIONAL: Reset Color to black or white if you want strictly clean cleanup
-        // But usually, just clearing the character is enough if we draw correctly next time.
     }
 
-    // 2. Draw at NEW position
     for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
         if (!g_aliens[i].active) continue;
 
@@ -219,13 +222,83 @@ void aliens_render(byte* screen) {
         unsigned short offset = g_row_offsets[r] + g_grid_x + g_aliens[i].rel_x;
         unsigned char t = g_aliens[i].type;
         
-        // Draw Characters
         screen[offset]     = ALIEN_CHARS[t][g_anim_frame][0];
         screen[offset + 1] = ALIEN_CHARS[t][g_anim_frame][1];
 
-        // Use Stored Row Color
         unsigned char c = g_aliens[i].color;
         Color[offset]     = c;
         Color[offset + 1] = c;
     }
+}
+
+extern byte* Screen; 
+
+int aliens_check_hit(unsigned char col, unsigned char row) {
+    if (col < g_grid_x || row < g_grid_y) return 0;
+
+    unsigned char target_rel_x = col - g_grid_x;
+    unsigned char target_rel_y = row - g_grid_y;
+
+    for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
+        if (!g_aliens[i].active) continue;
+
+        // FIX: Check Top Row (rel_y) AND Bottom Row (rel_y + 1)
+        // This ensures the missile hits even if aligned with the alien's feet.
+        if (target_rel_y == g_aliens[i].rel_y || target_rel_y == g_aliens[i].rel_y + 1) {
+            
+            if (g_aliens[i].rel_x == target_rel_x || g_aliens[i].rel_x + 1 == target_rel_x) {
+                
+                unsigned short r = g_grid_y + g_aliens[i].rel_y;
+                // Calculate Offset manually to be safe or use expanded table
+                unsigned short offset = (r * 40) + g_grid_x + g_aliens[i].rel_x;
+                
+                if (offset < 1000) { 
+                    Screen[offset] = ' ';
+                    Screen[offset + 1] = ' ';
+                }
+
+                unsigned short old_r = g_old_grid_y + g_aliens[i].rel_y;
+                unsigned short old_offset = (old_r * 40) + g_old_grid_x + g_aliens[i].rel_x;
+
+                if (old_offset < 1000) { 
+                    Screen[old_offset] = ' ';
+                    Screen[old_offset + 1] = ' ';
+                }
+
+                g_aliens[i].active = 0;
+                sfx_alien_hit();
+                g_alive_count--;
+                g_render_dirty = 1; 
+
+                if (g_aliens[i].type == 0)      g_score += 30;
+                else if (g_aliens[i].type == 1) g_score += 20;
+                else                            g_score += 10;
+
+                update_score_display();
+                return 1; 
+            }
+        }
+    }
+    return 0;
+}
+
+int aliens_cleared(void) {
+    return g_alive_count < 1;
+}
+
+void aliens_reset(void) {
+    g_grid_x = START_COL; 
+    g_grid_y = START_ROW;
+    
+    g_timer      = 0;
+    g_anim_frame = 0;
+    g_dir        = 1;  
+    g_next_dir   = 1;  
+    g_state      = 0;  
+    
+    for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
+        g_aliens[i].active = 1;
+    }
+    g_alive_count = TOTAL_ALIENS;
+    g_render_dirty = 1;
 }
