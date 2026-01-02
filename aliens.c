@@ -15,6 +15,18 @@
 
 #define TOTAL_ALIENS    (NUM_ROWS * ALIENS_PER_ROW)
 
+#define STATE_DEAD       0
+#define STATE_ALIVE      1
+#define STATE_EXPLODING  2
+
+#define EXPLOSION_SPEED  8   // How many frames to stay on each stage (slower = bigger number)
+#define EXPLOSION_BASE   160 // The first character of your explosion set
+
+// MOVED TO TOP so update_explosions can see it
+extern byte* Screen; 
+// Added definition for Color RAM if not defined globally
+#define Color ((byte*)0xD800)
+
 extern unsigned int g_player_x; 
 
 extern void game_over(void);
@@ -44,18 +56,20 @@ static const unsigned char SPEED_TABLE[57] = {
 
 // --- STATE ---
 struct Alien {
-    unsigned char active;
+    unsigned char state;    // Changed from 'active'. 0=Dead, 1=Alive, 2=Exploding
     unsigned char type;
     unsigned char rel_x;
     unsigned char rel_y;
     unsigned char color;
+    unsigned char anim_timer; // Counts the frames between graphic changes
+    unsigned char anim_stage; // Tracks which of the 4 explosion sizes to draw (0-3)
 };
 
 static struct Alien g_aliens[TOTAL_ALIENS];
 unsigned char g_alive_count = TOTAL_ALIENS;
 
 static int g_grid_x = START_COL;
-static int g_grid_y = START_ROW;
+extern int g_grid_y = START_ROW;
 static int g_old_grid_x = START_COL;
 static int g_old_grid_y = START_ROW;
 
@@ -95,7 +109,7 @@ void aliens_init(byte* screen) {
         for (unsigned char c = 0; c < ALIENS_PER_ROW; c++) {
             if (i >= TOTAL_ALIENS) break; 
 
-            g_aliens[i].active = 1;
+            g_aliens[i].state = STATE_ALIVE;
             g_aliens[i].type = type;
             g_aliens[i].rel_y = r * 2; 
             g_aliens[i].rel_x = c * 3; 
@@ -103,6 +117,62 @@ void aliens_init(byte* screen) {
             
             g_alive_count++;
             i++;
+        }
+    }
+}
+
+void update_explosions(void) {
+    // Un-commented and fixed variable case to match extern/define
+    
+    for (int i = 0; i < TOTAL_ALIENS; i++) {
+        // We only care about aliens currently exploding
+        if (g_aliens[i].state == STATE_EXPLODING) {
+            
+            // 1. Handle Timing
+            g_aliens[i].anim_timer++;
+            
+            if (g_aliens[i].anim_timer >= EXPLOSION_SPEED) {
+                // Time to move to next frame
+                g_aliens[i].anim_timer = 0;
+                g_aliens[i].anim_stage++;
+
+                // 2. Check if Explosion is Done
+                if (g_aliens[i].anim_stage >= 4) {
+                    // Animation finished (0, 1, 2, 3 are done)
+                    g_aliens[i].state = STATE_DEAD;
+
+                    // FIX: Use GRID coordinates to calculate screen pos
+                    int r = g_grid_y + g_aliens[i].rel_y;
+                    int c = g_grid_x + g_aliens[i].rel_x;
+                    
+                    int offset = (r * 40) + c;
+                    
+                    if(offset < 1000) {
+                        Screen[offset]     = 32; // Space
+                        Screen[offset + 1] = 32; 
+                    }
+                    continue; // Done with this alien
+                }
+            }
+
+            // 3. Draw the Explosion Frame
+            int current_char = EXPLOSION_BASE + (g_aliens[i].anim_stage * 2);
+            
+            // FIX: Use GRID coordinates to calculate screen pos
+            int r = g_grid_y + g_aliens[i].rel_y;
+            int c = g_grid_x + g_aliens[i].rel_x;
+            
+            int offset = (r * 40) + c;
+            
+            if(offset < 1000) {
+                // Draw Left half
+                Screen[offset] = current_char;
+                Color[offset]  = VCOL_WHITE; 
+                
+                // Draw Right half
+                Screen[offset + 1] = current_char + 1;
+                Color[offset + 1]  = VCOL_WHITE; 
+            }
         }
     }
 }
@@ -141,7 +211,9 @@ void aliens_update(void) {
     g_current_delay = (unsigned char)calc_speed; 
     g_timer = g_current_delay;
 
-    
+    // For debugging
+    //g_timer = 56;
+
     g_render_dirty = 1;       
 
     g_anim_frame ^= 1;
@@ -151,7 +223,7 @@ void aliens_update(void) {
         int max_x = -100;
         
         for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
-            if (!g_aliens[i].active) continue;
+            if (!g_aliens[i].state) continue;
             
             int ax = g_grid_x + g_aliens[i].rel_x;
             if (ax < min_x) min_x = ax;
@@ -183,7 +255,7 @@ void aliens_update(void) {
 
         // Check if ANY active alien has hit the bottom
         for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
-             if (!g_aliens[i].active) continue;
+             if (!g_aliens[i].state) continue;
              int alien_y = g_grid_y + g_aliens[i].rel_y;
 
              if (alien_y >= COLLIDE_ROW) {
@@ -201,7 +273,7 @@ void aliens_update(void) {
     int p_col_end   = (p_pixel_x - 24 + 23) / 8; 
 
     for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
-         if (!g_aliens[i].active) continue;
+         if (!g_aliens[i].state) continue;
 
          int alien_y = g_grid_y + g_aliens[i].rel_y;
          int alien_x = g_grid_x + g_aliens[i].rel_x; 
@@ -220,11 +292,19 @@ void aliens_update(void) {
 // --- RENDER ---
 
 void aliens_render(byte* screen) {
-    if (!g_render_dirty) return;
+
+    // FIX: Update explosions even if aliens aren't moving (dirty=0)
+    if (!g_render_dirty) {
+        update_explosions();
+        return;
+    }
+    
     g_render_dirty = 0;
 
     for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
-        if (!g_aliens[i].active) continue;
+        // Clearing loop: Clear old positions for ALL non-dead aliens
+        // We still need to clear old position for Exploding aliens if the grid moved
+        if (g_aliens[i].state == STATE_DEAD) continue;
         
         unsigned short r = g_old_grid_y + g_aliens[i].rel_y;
         if (r >= 23) continue; 
@@ -237,7 +317,10 @@ void aliens_render(byte* screen) {
     }
 
     for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
-        if (!g_aliens[i].active) continue;
+        // DRAWING loop
+        // FIX: Do NOT draw normal aliens if they are Exploding.
+        // update_explosions handles drawing them.
+        if (g_aliens[i].state != STATE_ALIVE) continue;
 
         unsigned short r = g_grid_y + g_aliens[i].rel_y;
         if (r > 24) continue;
@@ -252,9 +335,13 @@ void aliens_render(byte* screen) {
         Color[offset]     = c;
         Color[offset + 1] = c;
     }
+    
+    // FIX: Update explosions AFTER the clearing/drawing loops.
+    // This ensures the explosion is drawn on top and not wiped by the clearing loop.
+    update_explosions();
 }
 
-extern byte* Screen; 
+// extern byte* Screen; // MOVED TO TOP
 
 int aliens_check_hit(unsigned char col, unsigned char row) {
     if (col < g_grid_x || row < g_grid_y) return 0;
@@ -263,7 +350,7 @@ int aliens_check_hit(unsigned char col, unsigned char row) {
     unsigned char target_rel_y = row - g_grid_y;
 
     for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
-        if (!g_aliens[i].active) continue;
+        if (g_aliens[i].state == STATE_DEAD) continue;
 
         // FIX: Check Top Row (rel_y) AND Bottom Row (rel_y + 1)
         // This ensures the missile hits even if aligned with the alien's feet.
@@ -288,7 +375,9 @@ int aliens_check_hit(unsigned char col, unsigned char row) {
                     Screen[old_offset + 1] = ' ';
                 }
 
-                g_aliens[i].active = 0;
+                g_aliens[i].state = STATE_EXPLODING;
+                g_aliens[i].anim_stage = 0;
+                g_aliens[i].anim_timer = 0;
                 sfx_alien_hit();
                 g_alive_count--;
                 g_render_dirty = 1; 
@@ -320,7 +409,7 @@ void aliens_reset(void) {
     g_state      = 0;  
     
     for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
-        g_aliens[i].active = 1;
+        g_aliens[i].state = STATE_ALIVE;
     }
     g_alive_count = TOTAL_ALIENS;
     g_render_dirty = 1;
@@ -335,7 +424,7 @@ int aliens_get_random_shooter(int* out_x, int* out_y) {
     int current = 0;
     
     for (int i = 0; i < TOTAL_ALIENS; i++) {
-        if (g_aliens[i].active) {
+        if (g_aliens[i].state == STATE_ALIVE) {
             if (current == pick) {
                 // Found the chosen one! 
                 // Convert Grid Coordinates to Screen Pixels for the sprite.

@@ -1,5 +1,6 @@
 #include "missile.h"
 #include "aliens.h"  // To report hits
+#include "bonus_ship.h" // report bonus ship hits
 #include "player.h"  // To get player position
 #include <c64/vic.h>
 #include <c64/types.h>
@@ -38,10 +39,10 @@ static int is_space_pressed(void) {
 // Returns 1 if hit, 0 if miss
 static int check_grid_hit(unsigned int pixel_x, unsigned int pixel_y) {
     
-    // 1. Boundary Checks
+    // Boundary Checks
     if (pixel_x < SCREEN_LEFT_EDGE || pixel_y < SCREEN_TOP_EDGE) return 0;
 
-    // 2. Convert Pixel to Grid
+    // Convert Pixel to Grid
     unsigned char col = (pixel_x - SCREEN_LEFT_EDGE) / 8;
     unsigned char row = (pixel_y - SCREEN_TOP_EDGE) / 8;
 
@@ -50,7 +51,13 @@ static int check_grid_hit(unsigned int pixel_x, unsigned int pixel_y) {
     // 3. Peek Screen Memory
     unsigned char char_code = Screen[row * 40 + col];
 
-    // 4. Check for Alien (Range 128-143)
+    // Bonus ship is a sprite, not in Screen RAM
+    // bonus_check_hit returns 0 or the points awarded
+    if (bonus_check_hit(col, row) != 0) {
+        return 1;
+    }
+
+    // Check for Alien (Range 128-143)
     if (char_code >= 128 && char_code <= 143) {
         // We found a char, now ask aliens.c if it's a valid target
         if (aliens_check_hit(col, row)) {

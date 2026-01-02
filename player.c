@@ -14,8 +14,8 @@
 #define MAX_X               320  
 
 // --- STATE ---
-unsigned char g_lives;
-unsigned char g_default_lives = 1;
+unsigned char g_lives = 3;
+unsigned char g_default_lives = 3;
 unsigned int g_player_x = 172; 
 
 // Extern: We will create this in invaders.c shortly

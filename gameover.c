@@ -100,8 +100,8 @@ void game_over_sequence(void) {
     // Start X = (40 - 24) / 2 = 8.
     // Row 6 seems like a good vertical spot.
     int X = 8;
-    int Y1 = 6;
-    int Y2 = 14;
+    int Y1 = 5;
+    int Y2 = 13;
     
     draw_big_char(X, Y1, CHAR_G);
     draw_big_char(X + 6, Y1, CHAR_A);

@@ -1,4 +1,5 @@
 #include "sounds.h"
+#include <stdint.h>
 
 // --- SID REGISTERS ---
 #define SID_V1_FREQ_LO  (*(volatile unsigned char*)0xD400)
@@ -35,6 +36,38 @@
 #define PULSE 0x40
 #define NOISE 0x80
 
+#define SID_BASE ((volatile unsigned char*)0xD400)
+
+// Voice 2 (UFO siren) registers
+#define V2_FREQ_LO   0x07
+#define V2_FREQ_HI   0x08
+#define V2_PW_LO     0x09
+#define V2_PW_HI     0x0A
+#define V2_CTRL      0x0B
+#define V2_AD        0x0C
+#define V2_SR        0x0D
+
+// Voice 3 (Explosion) registers
+#define V3_FREQ_LO   0x0E
+#define V3_FREQ_HI   0x0F
+#define V3_PW_LO     0x10
+#define V3_PW_HI     0x11
+#define V3_CTRL      0x12
+#define V3_AD        0x13
+#define V3_SR        0x14
+
+// Global SID registers
+#define SID_FC_LO    0x15
+#define SID_FC_HI    0x16
+#define SID_RES_FILT 0x17
+
+// Control bits
+#define GATE_BIT     0x01
+#define TRI_BIT      0x10
+#define SAW_BIT      0x20
+#define PULSE_BIT    0x40
+#define NOISE_BIT    0x80
+
 // --- STATE VARIABLES ---
 // Voice 1 (Shooting/Hits)
 static unsigned char v1_timer = 0; 
@@ -47,11 +80,29 @@ static unsigned int  v2_freq  = 0;
 static unsigned char v2_mode  = 0; 
 
 // Voice 3 (Marching)
+static unsigned char v3_timer = 0;   // for bonus explosion tail
 static unsigned char march_step = 0; 
+
+static unsigned char g_ufo_active = 0;
+static unsigned char g_ufo_tick = 0;
+static unsigned char ufo_pitch_dir = 0; // 0=Up, 1=Down
+/*
+static inline void sid_set_volume(unsigned char vol)
+{
+    SID_BASE[SID_MODE_VOL] =
+        (SID_BASE[SID_MODE_VOL] & 0xF0) | (vol & 0x0F);
+}
+*/
+
+static inline void sid_set_volume(unsigned char vol)
+{
+    SID_MODE_VOL = (SID_MODE_VOL & 0xF0) | (vol & 0x0F);
+}
 
 // --- INIT ---
 void sound_init(void) {
-    SID_MODE_VOL = 0x0F; 
+
+    sid_set_volume(15);
 
     // V1 Defaults
     SID_V1_AD = 0x00; 
@@ -64,60 +115,6 @@ void sound_init(void) {
     // V3 Defaults
     SID_V3_AD = 0x05; 
     SID_V3_SR = 0x00;
-}
-
-// --- UPDATE LOOP ---
-void sound_update(void) {
-    
-    // --- VOICE 1 UPDATE (Missile/Hits) ---
-    if (v1_timer > 0) {
-        v1_timer--;
-        
-        // Mode 1: Missile Pew
-        if (v1_mode == 1) {
-            // Controlled downward sweep
-            const unsigned int end_freq = 0x0A00;
-
-            if (v1_freq > end_freq + 0x0080) {
-                //v1_freq -= 0x0180;   // tweak this for speed of drop
-                v1_freq -= 0x0220;
-            } else {
-                v1_freq = end_freq;
-            }
-
-            SID_V1_FREQ_LO = (unsigned char)(v1_freq & 0xFF);
-            SID_V1_FREQ_HI = (unsigned char)(v1_freq >> 8);
-        }
-
-        if (v1_timer == 0) {
-            SID_V1_CTRL = 0; // Gate Off
-            v1_mode = 0;     // Reset mode
-        }
-    }
-
-    // --- VOICE 2 UPDATE (Death/Game Over) ---
-    if (v2_timer > 0) {
-        v2_timer--;
-        
-        // Mode 1: Player Death
-        if (v2_mode == 1) {
-            if (v2_freq > 0x0300) v2_freq -= 0x0040; 
-            SID_V2_FREQ_LO = (unsigned char)(v2_freq & 0xFF);
-            SID_V2_FREQ_HI = (unsigned char)(v2_freq >> 8);
-        }
-        // Mode 2: Game Over
-        else if (v2_mode == 2) {
-             if (v2_freq > 0x0200) v2_freq -= 0x0010;
-             unsigned int wobbly = v2_freq + ((v2_timer & 4) ? 0x0100 : 0);
-             SID_V2_FREQ_LO = (unsigned char)(wobbly & 0xFF);
-             SID_V2_FREQ_HI = (unsigned char)(wobbly >> 8);
-        }
-
-        if (v2_timer == 0) {
-            SID_V2_CTRL = 0; 
-            v2_mode = 0;
-        }
-    }
 }
 
 // --- SOUND EFFECTS ---
@@ -211,4 +208,151 @@ void sfx_march(void) {
     
     SID_V3_CTRL = 0; // Reset Gate
     SID_V3_CTRL = SAW | GATE; 
+}
+
+void sfx_ufo_start(void)
+{
+    g_ufo_active = 1;
+    g_ufo_tick = 0;
+
+    sid_set_volume(15);
+
+    // Voice 2 siren setup
+    SID_V2_CTRL = 0;        // reset
+    SID_V2_AD   = 0x11;     // quick attack, short decay
+    SID_V2_SR   = 0xF2;     // sustain high, short release (keeps it present)
+
+    // Start at an audible pitch immediately
+    SID_V2_FREQ_LO = 0x00;
+    SID_V2_FREQ_HI = 0x09;  // 0x0900
+
+    // 50% pulse width-ish
+    SID_V2_PW_LO = 0x00;
+    SID_V2_PW_HI = 0x08;
+
+    SID_V2_CTRL = PULSE | GATE;
+}
+
+void sfx_ufo_stop(void)
+{
+    g_ufo_active = 0;
+
+    // Hard stop Voice 2
+    SID_V2_CTRL = 0;
+}
+
+static void sfx_ufo_update(void)
+{
+    if (!g_ufo_active) return;
+
+    g_ufo_tick++;
+
+    // Toggle between two pitches every few frames for the "warble"
+    // Tune these two for taste.
+    if ((g_ufo_tick & 0x10) == 0) {
+        SID_V2_FREQ_LO = 0x00;
+        SID_V2_FREQ_HI = 0x09;  // 0x0900
+    } else {
+        SID_V2_FREQ_LO = 0x00;
+        SID_V2_FREQ_HI = 0x0B;  // 0x0B00
+    }
+
+    // Small PWM wobble to add movement to the tone
+    // (Avoids sounding like a static square wave)
+    if ((g_ufo_tick & 0x08) == 0) {
+        SID_V2_PW_LO = 0x00;
+        SID_V2_PW_HI = 0x07;
+    } else {
+        SID_V2_PW_LO = 0x00;
+        SID_V2_PW_HI = 0x09;
+    }
+}
+
+void sfx_bonus_ship_hit(void)
+{
+    sid_set_volume(15);
+
+    // Hard reset V3 so it retriggers cleanly
+    SID_V3_CTRL = 0;
+
+    // Big noise burst, but NO sustain so it doesn't hang forever
+    SID_V3_AD = 0x09;   // A=0, D=9
+    SID_V3_SR = 0x02;   // S=0, R=2 (no sustain)
+
+    unsigned int freq = 0x1800;
+    SID_V3_FREQ_LO = (unsigned char)(freq & 0xFF);
+    SID_V3_FREQ_HI = (unsigned char)(freq >> 8);
+
+    SID_V3_CTRL = NOISE | GATE;
+
+    // Ensure gate gets shut off after a short time
+    v3_timer = 18;      // tweak 12..30 frames to taste
+}
+
+// --- UPDATE LOOP ---
+void sound_update(void) {
+    
+    // --- VOICE 1 UPDATE (Missile/Hits) ---
+    if (v1_timer > 0) {
+        v1_timer--;
+        
+        // Mode 1: Missile Pew
+        if (v1_mode == 1) {
+            // Controlled downward sweep
+            const unsigned int end_freq = 0x0A00;
+
+            if (v1_freq > end_freq + 0x0080) {
+                //v1_freq -= 0x0180;   // tweak this for speed of drop
+                v1_freq -= 0x0220;
+            } else {
+                v1_freq = end_freq;
+            }
+
+            SID_V1_FREQ_LO = (unsigned char)(v1_freq & 0xFF);
+            SID_V1_FREQ_HI = (unsigned char)(v1_freq >> 8);
+        }
+
+        if (v1_timer == 0) {
+            SID_V1_CTRL = 0; // Gate Off
+            v1_mode = 0;     // Reset mode
+        }
+    }
+
+    // --- VOICE 2 UPDATE (Death/Game Over) ---
+    if (v2_timer > 0) {
+        v2_timer--;
+        
+        // Mode 1: Player Death
+        if (v2_mode == 1) {
+            if (v2_freq > 0x0300) v2_freq -= 0x0040; 
+            SID_V2_FREQ_LO = (unsigned char)(v2_freq & 0xFF);
+            SID_V2_FREQ_HI = (unsigned char)(v2_freq >> 8);
+        }
+        // Mode 2: Game Over
+        else if (v2_mode == 2) {
+             if (v2_freq > 0x0200) v2_freq -= 0x0010;
+             unsigned int wobbly = v2_freq + ((v2_timer & 4) ? 0x0100 : 0);
+             SID_V2_FREQ_LO = (unsigned char)(wobbly & 0xFF);
+             SID_V2_FREQ_HI = (unsigned char)(wobbly >> 8);
+        }
+
+        if (v2_timer == 0) {
+            SID_V2_CTRL = 0; 
+            v2_mode = 0;
+        }
+    }
+
+    // If V2 is idle, we can run the UFO siren
+    if (v2_timer == 0) {
+        sfx_ufo_update();
+    }
+
+    // --- VOICE 3 UPDATE (Bonus explosion tail) ---
+    if (v3_timer > 0) {
+        v3_timer--;
+        if (v3_timer == 0) {
+            SID_V3_CTRL = 0; // Gate off
+        }
+    }
+
 }
