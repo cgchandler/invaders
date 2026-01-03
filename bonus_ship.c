@@ -1,4 +1,5 @@
 #include "bonus_ship.h"
+#include "aliens.h"
 #include <c64/vic.h>
 #include <c64/types.h>
 #include <stdlib.h>
@@ -15,6 +16,8 @@
 #define BONUS_Y_POS          58     // (50 + 15*1 = 58)
 //#define BONUS_Y_POS          170    // Change position to Row 15 (50 + 15*8 = 170) for testing
 
+#define BONUS_ALIEN_MIN_ROW  4       // Minimum alien row for bonus ship to spawn
+
 #define STATE_OFF            0
 #define STATE_MOVING         1
 #define STATE_EXPLODING      2
@@ -28,35 +31,17 @@
 #define BONUS_ACTIVE_Y_OFFSET   0   // 0 if your ship pixels start at top of sprite
 #define BONUS_ACTIVE_HEIGHT     8   // ship is only 8 pixels tall
 
-// --- EXTERNS ---
-extern unsigned char g_alive_count;   
-extern  int g_grid_y;
-extern unsigned int g_score;          
-extern byte* Screen;                  
-extern void update_score_display(void);
-extern unsigned int g_shots_fired;    
+// Module state (file-local)
+static bonus_ship_state s_bonus_state = { 0 };
 
-// Added definition for Color RAM if not defined globally
-#define Color ((byte*)0xD800)
-
-static int g_bonus_score_timer = 0;
-
-// --- STATE ---
-static struct {
-    unsigned char state;
-    int x;
-    int dir;              
-    unsigned char timer;  
-    unsigned char anim_frame;
-    unsigned int last_score_val; 
-    int score_grid_pos;   
-} g_bonus;
+static inline bonus_ship_state* _bstate(void) { return &s_bonus_state; }
 
 #define BASE_SPRITE_PTR 32 
 
 void bonus_init(void) {
-    g_bonus.state = STATE_OFF;
-    g_bonus.timer = 0;
+    bonus_ship_state* b = _bstate();
+    b->state = STATE_OFF;
+    b->timer = 0;
     
     // Ensure Sprite 7 properties are reset
     vic.spr_expand_x &= ~(1 << BONUS_SPRITE_INDEX);
@@ -71,76 +56,77 @@ void bonus_reset(void) {
 void bonus_update(void) {
 
     // Always stop UFO movement sound unless actively moving
-    if (g_bonus.state != STATE_MOVING) {
+    bonus_ship_state* b = _bstate();
+    if (b->state != STATE_MOVING) {
         sfx_ufo_stop();
     }
 
-    if (g_bonus.state == STATE_OFF) {
+    if (b->state == STATE_OFF) {
+        aliens_state* astate = aliens_get_state();
         if (
-            (g_alive_count >= 8)                // Minimum of eight aliens
-            && (g_grid_y > 2)                   // Alien minimum row - clear space for alien
-            && (rand() % SPAWN_RATE) == 0)      // Random Spawn Success
+            (astate->alive_count >= 8)      // Minimum of eight aliens
+            && (astate->grid_y >= BONUS_ALIEN_MIN_ROW)    // Alien minimum row - clear space for alien
+            && (rand() % SPAWN_RATE) == 0)  // Random Spawn Success
         {
-            g_bonus.state = STATE_MOVING;
+            b->state = STATE_MOVING;
 
             sfx_ufo_start();
 
             if (rand() % 2 == 0) {
-                g_bonus.x = SCREEN_MIN_X;
-                g_bonus.dir = 1;
+                b->x = SCREEN_MIN_X;
+                b->dir = 1;
             } else {
-                g_bonus.x = SCREEN_MAX_X;
-                g_bonus.dir = -1;
+                b->x = SCREEN_MAX_X;
+                b->dir = -1;
             }
         }
         return;
     }
 
-    if (g_bonus.state == STATE_MOVING) {
-        g_bonus.x += (g_bonus.dir * MOVE_SPEED);
+    if (b->state == STATE_MOVING) {
+        b->x += (b->dir * MOVE_SPEED);
 
         // Bounds Check
-        if ((g_bonus.dir == 1 && g_bonus.x > SCREEN_MAX_X) ||
-            (g_bonus.dir == -1 && g_bonus.x < SCREEN_MIN_X)) {
-            g_bonus.state = STATE_OFF;
+        if ((b->dir == 1 && b->x > SCREEN_MAX_X) ||
+            (b->dir == -1 && b->x < SCREEN_MIN_X)) {
+            b->state = STATE_OFF;
             sfx_ufo_stop();
         }
         return;
     }
 
-    if (g_bonus.state == STATE_EXPLODING) {
+    if (b->state == STATE_EXPLODING) {
+        // EXPLOSION: runs on b->timer
+        b->timer++;
+        if (b->timer >= EXPLOSION_SPEED) {
+            b->timer = 0;
+            b->anim_frame++;
 
-        // EXPLOSION: runs on g_bonus.timer
-        g_bonus.timer++;
-        if (g_bonus.timer >= EXPLOSION_SPEED) {
-            g_bonus.timer = 0;
-            g_bonus.anim_frame++;
-
-            if (g_bonus.anim_frame >= 4) {
+            if (b->anim_frame >= 4) {
                 // Explosion finished, but score may still be showing.
                 // Do NOT force state change if score is still active.
-                if (g_bonus_score_timer <= 0) {
-                    g_bonus.state = STATE_OFF;
+                if (b->score_timer <= 0) {
+                    b->state = STATE_OFF;
                     sfx_ufo_stop();
                 } else {
                     // Stay in a score-showing state while timer runs
-                    g_bonus.state = STATE_SHOW_SCORE;
+                    b->state = STATE_SHOW_SCORE;
                 }
                 return;
             }
         }
 
         // SCORE: independent timer
-        if (g_bonus_score_timer > 0) {
-            g_bonus_score_timer--;
-            if (g_bonus_score_timer == 0) {
-                Screen[g_bonus.score_grid_pos]   = ' ';
-                Screen[g_bonus.score_grid_pos+1] = ' ';
-                Screen[g_bonus.score_grid_pos+2] = ' ';
+        if (b->score_timer > 0) {
+            b->score_timer--;
+            if (b->score_timer == 0) {
+                Screen[b->score_grid_pos]   = ' ';
+                Screen[b->score_grid_pos+1] = ' ';
+                Screen[b->score_grid_pos+2] = ' ';
 
                 // If explosion already ended, we can go OFF now
-                if (g_bonus.anim_frame >= 4) {
-                    g_bonus.state = STATE_OFF;
+                if (b->anim_frame >= 4) {
+                    b->state = STATE_OFF;
                     sfx_ufo_stop();
                 }
             }
@@ -149,22 +135,21 @@ void bonus_update(void) {
         return;
     }
 
-    if (g_bonus.state == STATE_SHOW_SCORE) {
-
+    if (b->state == STATE_SHOW_SCORE) {
         // Keep counting score time even after explosion has ended
-        if (g_bonus_score_timer > 0) {
-            g_bonus_score_timer--;
-            if (g_bonus_score_timer == 0) {
-                Screen[g_bonus.score_grid_pos]   = ' ';
-                Screen[g_bonus.score_grid_pos+1] = ' ';
-                Screen[g_bonus.score_grid_pos+2] = ' ';
+        if (b->score_timer > 0) {
+            b->score_timer--;
+            if (b->score_timer == 0) {
+                Screen[b->score_grid_pos]   = ' ';
+                Screen[b->score_grid_pos+1] = ' ';
+                Screen[b->score_grid_pos+2] = ' ';
 
-                g_bonus.state = STATE_OFF;
+                b->state = STATE_OFF;
                 sfx_ufo_stop();
             }
         } else {
             // Safety
-            g_bonus.state = STATE_OFF;
+            b->state = STATE_OFF;
             sfx_ufo_stop();
         }
 
@@ -173,7 +158,8 @@ void bonus_update(void) {
 }
 
 void bonus_render(void) {
-    if (g_bonus.state == STATE_OFF || g_bonus.state == STATE_SHOW_SCORE) {
+    bonus_ship_state* b = _bstate();
+    if (b->state == STATE_OFF || b->state == STATE_SHOW_SCORE) {
         vic.spr_enable &= ~(1 << BONUS_SPRITE_INDEX);
         return;
     }
@@ -190,21 +176,21 @@ void bonus_render(void) {
     // Set Pointer
     byte* sprite_ptrs = (byte*)(0x4400 + 0x3F8); 
     
-    if (g_bonus.state == STATE_MOVING) {
+    if (b->state == STATE_MOVING) {
         sprite_ptrs[BONUS_SPRITE_INDEX] = BASE_SPRITE_PTR + BONUS_PTR_OFFSET; 
     } else {
-        sprite_ptrs[BONUS_SPRITE_INDEX] = BASE_SPRITE_PTR + EXPLOSION_PTR_OFFSET + g_bonus.anim_frame;
+        sprite_ptrs[BONUS_SPRITE_INDEX] = BASE_SPRITE_PTR + EXPLOSION_PTR_OFFSET + b->anim_frame;
     }
 
     vic.spr_pos[BONUS_SPRITE_INDEX].y = BONUS_Y_POS;
     
     // MSB Handling
-    if (g_bonus.x > 255) {
+    if (b->x > 255) {
         vic.spr_msbx |= (1 << BONUS_SPRITE_INDEX);
-        vic.spr_pos[BONUS_SPRITE_INDEX].x = g_bonus.x & 0xFF;
+        vic.spr_pos[BONUS_SPRITE_INDEX].x = b->x & 0xFF;
     } else {
         vic.spr_msbx &= ~(1 << BONUS_SPRITE_INDEX);
-        vic.spr_pos[BONUS_SPRITE_INDEX].x = g_bonus.x;
+        vic.spr_pos[BONUS_SPRITE_INDEX].x = b->x;
     }
 }
 
@@ -218,12 +204,13 @@ int bonus_check_hit(int m_col, int m_row)
     // UFO sprite geometry (X-expanded)
     const int BONUS_SPRITE_WIDTH_PX = 48;
 
-    if (g_bonus.state != STATE_MOVING) return 0;
+    bonus_ship_state* b = _bstate();
+    if (b->state != STATE_MOVING) return 0;
 
     // X-expanded sprite: 24 px wide becomes 48 px wide.
-    // g_bonus.x is the sprite's LEFT EDGE.
-    int x_left  = g_bonus.x;
-    int x_right = g_bonus.x + (BONUS_SPRITE_WIDTH_PX - 1); // inclusive
+    // b->x is the sprite's LEFT EDGE.
+    int x_left  = b->x;
+    int x_right = b->x + (BONUS_SPRITE_WIDTH_PX - 1); // inclusive
 
     // Convert sprite pixel X bounds into character columns using SAME origin as missile code.
     int col_min = (x_left  - SCREEN_LEFT_EDGE) / 8;
@@ -247,27 +234,28 @@ int bonus_check_hit(int m_col, int m_row)
     if (m_col < col_min || m_col > col_max) return 0;
 
     // HIT
-    g_bonus.state = STATE_EXPLODING;
-    g_bonus.anim_frame = 0;
-    g_bonus.timer = 0;
+    b->state = STATE_EXPLODING;
+    b->anim_frame = 0;
+    b->timer = 0;
 
     sfx_ufo_stop();
     sfx_bonus_ship_hit();
 
     int points = 50;
-    if (g_shots_fired == 23 ||
-        (g_shots_fired > 23 && ((g_shots_fired - 23) % 15 == 0)))
+    game_state* gs = game_get_state();
+    if (gs->shots_fired == 23 ||
+        (gs->shots_fired > 23 && ((gs->shots_fired - 23) % 15 == 0)))
     {
         points = 300;
     }
 
-    g_score += points;
-    g_bonus.last_score_val = points;
+    gs->score += points;
+    b->last_score_val = points;
 
     // Center score text over the sprite
     int score_width = (points == 300) ? 3 : 2;
 
-    int sprite_center_x = g_bonus.x + (BONUS_SPRITE_WIDTH_PX / 2);
+    int sprite_center_x = b->x + (BONUS_SPRITE_WIDTH_PX / 2);
     int center_col = (sprite_center_x - SCREEN_LEFT_EDGE) / 8;
 
     int start_col = center_col - (score_width / 2);
@@ -278,32 +266,36 @@ int bonus_check_hit(int m_col, int m_row)
     if (score_row < 0) score_row = 0;
     if (score_row > 24) score_row = 24;
 
-    g_bonus.score_grid_pos = (score_row * 40) + start_col;
+    b->score_grid_pos = (score_row * 40) + start_col;
 
     // Clear area (always clear 3 for safety)
-    Screen[g_bonus.score_grid_pos]   = ' ';
-    Screen[g_bonus.score_grid_pos+1] = ' ';
-    Screen[g_bonus.score_grid_pos+2] = ' ';
+    Screen[b->score_grid_pos]   = ' ';
+    Screen[b->score_grid_pos+1] = ' ';
+    Screen[b->score_grid_pos+2] = ' ';
 
     // Draw score
     if (points == 300) {
-        Screen[g_bonus.score_grid_pos]   = '3';
-        Screen[g_bonus.score_grid_pos+1] = '0';
-        Screen[g_bonus.score_grid_pos+2] = '0';
+        Screen[b->score_grid_pos]   = '3';
+        Screen[b->score_grid_pos+1] = '0';
+        Screen[b->score_grid_pos+2] = '0';
     } else {
-        Screen[g_bonus.score_grid_pos+1] = '5';
-        Screen[g_bonus.score_grid_pos+2] = '0';
+        Screen[b->score_grid_pos+1] = '5';
+        Screen[b->score_grid_pos+2] = '0';
     }
 
     // Set score color (safe to set all 3)
-    Color[g_bonus.score_grid_pos]   = VCOL_WHITE;
-    Color[g_bonus.score_grid_pos+1] = VCOL_WHITE;
-    Color[g_bonus.score_grid_pos+2] = VCOL_WHITE;
+    Color[b->score_grid_pos]   = VCOL_WHITE;
+    Color[b->score_grid_pos+1] = VCOL_WHITE;
+    Color[b->score_grid_pos+2] = VCOL_WHITE;
 
     // Start score timer now, independent of explosion
-    g_bonus_score_timer = SCORE_SHOW_TIME;
+    b->score_timer = SCORE_SHOW_TIME;
 
     update_score_display();
 
     return points;
+}
+
+bonus_ship_state* bonus_ship_get_state(void) {
+    return &s_bonus_state;
 }

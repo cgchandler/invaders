@@ -4,35 +4,24 @@
 
 extern byte* const Color;
 
+#include "config.h"
+
 #define TOP_ROW     1
 #define BOTTOM_ROW  20
 #define SCREEN_COLS 40
 #define STAR_FRAMES 8
 #define STAR_OFF    32 
-#define MAX_STARS   50 
 
 // Lookup table is now ONLY used in Update (Main Time), not Render (VBlank)
-static const unsigned short g_row_offsets[26] = {
+static const unsigned short row_offsets[26] = {
     0,   40,  80,  120, 160, 200, 240, 280, 320, 360,
     400, 440, 480, 520, 560, 600, 640, 680, 720, 760,
     800, 840, 880, 920, 960, 1000
 };
 
-static unsigned char g_char_base = 145;
-static unsigned char g_speed_delay = 0;
-static unsigned char g_speed_counter = 0;
-static unsigned char g_active_stars = MAX_STARS;
-
-// STATE ARRAYS
-// We now store the Raw Screen Offset (0-999) instead of Row/Col.
-// This allows the Render loop to just "Point and Shoot".
-static unsigned short g_curr_pos[MAX_STARS];
-static unsigned char  g_curr_phase[MAX_STARS];
-static unsigned char  g_curr_color[MAX_STARS];
-
-static unsigned short g_next_pos[MAX_STARS];
-static unsigned char  g_next_phase[MAX_STARS];
-static unsigned char  g_next_color[MAX_STARS];
+static starfield_state static_starfield_state = { .char_base = 145, .speed_delay = 0, .speed_counter = 0, .active_stars = MAX_STARS };
+// Inline accessor for local module use
+static inline starfield_state* _sstate(void) { return &static_starfield_state; }
 
 // --- FAST HELPERS ---
 
@@ -69,76 +58,79 @@ static int is_screen_spot_free(unsigned short pos, byte* screen)
 
 void starfield_set_speed(unsigned char frames_per_step)
 {
-    g_speed_delay = frames_per_step;
-    g_speed_counter = 0;
+    starfield_state* s = _sstate();
+    s->speed_delay = frames_per_step;
+    s->speed_counter = 0;
 }
 
-void starfield_init(unsigned char char_base_index, byte* target_screen, unsigned char num_stars)
+void starfield_init(unsigned char char_base_index, unsigned char num_stars)
 {
-    g_char_base = char_base_index;
+    starfield_state* s = _sstate();
+    s->char_base = char_base_index;
     if (num_stars > MAX_STARS) num_stars = MAX_STARS;
-    g_active_stars = num_stars;
+    s->active_stars = num_stars;
     
-    for (unsigned i = 0; i < g_active_stars; i++)
+    for (unsigned i = 0; i < s->active_stars; i++)
     {
         // Init Offsets to a safe dummy value
-        g_next_pos[i] = 0; 
+        s->next_pos[i] = 0; 
 
         // Find a spot
         for (int k=0; k<50; k++) 
         {
             unsigned char r = fast_rand_row();
             unsigned char c = fast_rand_col();
-            unsigned short p = g_row_offsets[r] + c;
+            unsigned short p = row_offsets[r] + c;
             
-            if (is_screen_spot_free(p, target_screen)) {
-                g_next_pos[i] = p;
+            if (is_screen_spot_free(p, Screen)) {
+                s->next_pos[i] = p;
                 break;
             }
         }
         
-        g_next_phase[i] = (unsigned char)rand() & 7; 
-        g_next_color[i] = star_random_color();
+        s->next_phase[i] = (unsigned char)rand() & 7; 
+        s->next_color[i] = star_random_color();
         
         // Sync State
-        g_curr_pos[i] = g_next_pos[i];
-        g_curr_phase[i] = g_next_phase[i];
-        g_curr_color[i] = g_next_color[i];
+        s->curr_pos[i] = s->next_pos[i];
+        s->curr_phase[i] = s->next_phase[i];
+        s->curr_color[i] = s->next_color[i];
     }
     
-    starfield_render(target_screen);
+    starfield_render();
 }
 
-void starfield_update_motion(byte* screen)
+void starfield_update_motion()
 {
-    // 1. STATE COMMIT (Moved from Render to here)
+    // STATE COMMIT (Moved from Render to here)
     // We copy Next -> Curr here, outside of VBlank.
     // This makes 'curr' the "Old" position (what is currently on screen)
     // and prepares 'next' to calculate the "New" position.
-    for(unsigned i=0; i<g_active_stars; i++) {
-        g_curr_pos[i]   = g_next_pos[i];
-        g_curr_phase[i] = g_next_phase[i];
-        g_curr_color[i] = g_next_color[i];
+    starfield_state* s = _sstate();
+    for(unsigned i=0; i<s->active_stars; i++) {
+        s->curr_pos[i]   = s->next_pos[i];
+        s->curr_phase[i] = s->next_phase[i];
+        s->curr_color[i] = s->next_color[i];
     }
 
-    // 2. Speed Check
-    if (g_speed_delay > 0) {
-        g_speed_counter++;
-        if (g_speed_counter < g_speed_delay) {
+    // Speed Check
+    if (s->speed_delay > 0) {
+        s->speed_counter++;
+        if (s->speed_counter < s->speed_delay) {
             // No movement: Next remains same as Curr.
             // Render will see (Curr == Next) and skip drawing.
             return; 
         }
-        g_speed_counter = 0;
+        s->speed_counter = 0;
     }
 
-    // 3. Calculate New Positions
-    unsigned short bottom_limit = g_row_offsets[BOTTOM_ROW] + SCREEN_COLS; // ~920
+    // Calculate New Positions
+    unsigned short bottom_limit = row_offsets[BOTTOM_ROW] + SCREEN_COLS; // ~920
 
-    for (unsigned i = 0; i < g_active_stars; i++)
+    for (unsigned i = 0; i < s->active_stars; i++)
     {
-        unsigned char phase = g_curr_phase[i] + 1;
-        unsigned short pos = g_curr_pos[i];
+        unsigned char phase = s->curr_phase[i] + 1;
+        unsigned short pos = s->curr_pos[i];
         
         if (phase >= STAR_FRAMES)
         {
@@ -151,11 +143,11 @@ void starfield_update_motion(byte* screen)
                 for (int k=0; k<10; k++) {
                     unsigned char r = TOP_ROW;
                     unsigned char c = fast_rand_col();
-                    unsigned short p = g_row_offsets[r] + c;
+                    unsigned short p = row_offsets[r] + c;
                     
-                    if (is_screen_spot_free(p, screen)) {
+                    if (is_screen_spot_free(p, Screen)) {
                         pos = p;
-                        g_next_color[i] = star_random_color();
+                        s->next_color[i] = star_random_color();
                         break;
                     }
                 }
@@ -167,66 +159,72 @@ void starfield_update_motion(byte* screen)
             }
         }
         
-        g_next_phase[i] = phase;
-        g_next_pos[i]   = pos;
+                s->next_phase[i] = phase;
+                s->next_pos[i]   = pos;
     }
 }
 
 // ULTRA-FAST RENDER (Runs in VBlank)
 // No math, no copying, no checks unless necessary.
-void starfield_render(byte* target_screen)
+void starfield_render()
 {
     // Define the range of characters that belong to stars
     // We only erase if we see one of these.
-    unsigned char star_char_min = g_char_base;
-    unsigned char star_char_max = g_char_base + STAR_FRAMES; // Includes tail
+    starfield_state* s = _sstate();
+    unsigned char star_char_min = s->char_base;
+    unsigned char star_char_max = s->char_base + STAR_FRAMES; // Includes tail
 
-    for (unsigned i = 0; i < g_active_stars; i++)
+    for (unsigned i = 0; i < s->active_stars; i++)
     {
         // Optimization: Skip if no change in pos or phase
-        if (g_curr_pos[i] == g_next_pos[i] && g_curr_phase[i] == g_next_phase[i]) continue;
+        if (s->curr_pos[i] == s->next_pos[i] && s->curr_phase[i] == s->next_phase[i]) continue;
 
         // --- 1. POLITE ERASE (Don't delete Aliens!) ---
-        unsigned short p = g_curr_pos[i];
-        unsigned char c_on_screen = target_screen[p];
+        unsigned short p = s->curr_pos[i];
+        unsigned char c_on_screen = Screen[p];
 
         // Check: Is the thing on screen actually a star? 
         // If it's an Alien (range 128-139), this check fails and we don't erase it.
         if (c_on_screen >= star_char_min && c_on_screen <= star_char_max) {
-             target_screen[p] = STAR_OFF;
+             Screen[p] = STAR_OFF;
         }
         
         // Handle the tail (if it exists)
-        if (g_curr_phase[i] == (STAR_FRAMES - 1)) {
+        if (s->curr_phase[i] == (STAR_FRAMES - 1)) {
              unsigned short p2 = p + SCREEN_COLS;
              if (p2 < 1000) {
-                 c_on_screen = target_screen[p2];
+                 c_on_screen = Screen[p2];
                  if (c_on_screen >= star_char_min && c_on_screen <= star_char_max) {
-                    target_screen[p2] = STAR_OFF;
+                    Screen[p2] = STAR_OFF;
                  }
              }
         }
 
         // --- 2. POLITE DRAW (Don't overwrite Aliens!) ---
-        p = g_next_pos[i];
+        p = s->next_pos[i];
         
         // Check: Is the target spot empty?
         // Only draw if it is SPACE (STAR_OFF)
-        if (target_screen[p] == STAR_OFF) {
-            unsigned char phase = g_next_phase[i];
+        if (Screen[p] == STAR_OFF) {
+            unsigned char phase = s->next_phase[i];
             
-            target_screen[p] = (unsigned char)(g_char_base + phase);
-            Color[p] = g_next_color[i];
+            Screen[p] = (unsigned char)(s->char_base + phase);
+            Color[p] = s->next_color[i];
 
             // Tail Draw
             if (phase == (STAR_FRAMES - 1)) {
                 unsigned short p2 = p + SCREEN_COLS;
                 // Check tail spot too!
-                if (p2 < 1000 && target_screen[p2] == STAR_OFF) {
-                    target_screen[p2] = (unsigned char)(g_char_base + STAR_FRAMES);
-                    Color[p2] = g_next_color[i];
+                if (p2 < 1000 && Screen[p2] == STAR_OFF) {
+                    Screen[p2] = (unsigned char)(s->char_base + STAR_FRAMES);
+                    Color[p2] = s->next_color[i];
                 }
             }
         }
     }
+}
+
+starfield_state* starfield_get_state(void)
+{
+    return &static_starfield_state;
 }

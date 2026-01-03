@@ -1,11 +1,11 @@
 #include "bombs.h"
 #include "aliens.h"
 #include "player.h" 
+#include "config.h"
 #include <c64/vic.h>
 #include <stdlib.h> 
 
 // --- CONFIGURATION ---
-#define MAX_BOMBS       5
 #define BOMB_SPEED      2    
 #define GROUND_Y        225  
 #define FIRST_SPRITE    2    
@@ -16,19 +16,13 @@
 #define BOMB_SPAWN_RATE 200 // 0.5% chance or roughly every 3.3 seconds   
 //#define BOMB_SPAWN_RATE 500 // 0.2% chance or roughly every 8.3 seconds   
 
-// Access the global screen pointer (defined in main/invaders.c)
-extern byte* Screen; 
+// Module-local storage moved into bombs_state
+static bombs_state s_bombs_state = { 0 };
 
-struct Bomb {
-    unsigned char active;
-    unsigned int x;
-    unsigned int y;
-};
-
-static struct Bomb g_bombs[MAX_BOMBS];
+static inline bombs_state* _bstate(void) { return &s_bombs_state; }
 
 void bombs_init(void) {
-    // 1. POINTER SETUP
+    // POINTER SETUP
     // The VIC looks for sprite pointers at the last 8 bytes of Screen RAM.
     // Screen is at 0x4400, so Pointers are at Screen + 1016.
     
@@ -40,8 +34,9 @@ void bombs_init(void) {
     // default to 33 (which is what missile.c uses: 0x4840 / 64)
     if (bomb_ptr == 0) bomb_ptr = 33; 
 
+    bombs_state* b = _bstate();
     for (int i = 0; i < MAX_BOMBS; i++) {
-        g_bombs[i].active = 0;
+        b->active[i] = 0;
         
         // Set Sprite Pointer (Sprite 2, 3, 4, 5, 6)
         // We write to Screen + 1016 + Sprite Index
@@ -62,11 +57,13 @@ void bombs_init(void) {
 }
 
 void bombs_update(void) {
-    // 1. SPAWN LOGIC
+    // SPAWN LOGIC
+    player_state* pstate = player_get_state();
+    bombs_state* b = _bstate();
     if ((rand() % BOMB_SPAWN_RATE) == 0) {
         int slot = -1;
         for (int i = 0; i < MAX_BOMBS; i++) {
-            if (!g_bombs[i].active) {
+            if (!b->active[i]) {
                 slot = i;
                 break;
             }
@@ -75,9 +72,9 @@ void bombs_update(void) {
         if (slot != -1) {
             int start_x, start_y;
             if (aliens_get_random_shooter(&start_x, &start_y)) {
-                g_bombs[slot].active = 1;
-                g_bombs[slot].x = start_x;
-                g_bombs[slot].y = start_y;
+                b->active[slot] = 1;
+                b->x[slot] = start_x;
+                b->y[slot] = start_y;
                 
                 // Turn on Sprite
                 vic.spr_enable |= (1 << (FIRST_SPRITE + slot));
@@ -85,29 +82,29 @@ void bombs_update(void) {
         }
     }
 
-    // 2. MOVEMENT & COLLISION
+    // MOVEMENT & COLLISION
     for (int i = 0; i < MAX_BOMBS; i++) {
-        if (!g_bombs[i].active) continue;
+        if (!b->active[i]) continue;
 
         // Move Down
-        g_bombs[i].y += BOMB_SPEED;
+        b->y[i] += BOMB_SPEED;
 
         // A. Check Ground Collision
-        if (g_bombs[i].y > GROUND_Y) {
-            g_bombs[i].active = 0;
+        if (b->y[i] > GROUND_Y) {
+            b->active[i] = 0;
             vic.spr_enable &= ~(1 << (FIRST_SPRITE + i));
             continue;
         }
 
         // B. Check Player Collision
         // Player Y Hitbox (Approx 210-225)
-        if (g_bombs[i].y > 210 && g_bombs[i].y < 225) {
+        if (b->y[i] > 210 && b->y[i] < 225) {
             
             // Check X Overlap (Player width approx 24px)
-            if (g_bombs[i].x + 8 >= g_player_x && g_bombs[i].x <= g_player_x + 20) {
+            if (b->x[i] + 8 >= pstate->player_x && b->x[i] <= pstate->player_x + 20) {
                 
                 // HIT!
-                g_bombs[i].active = 0;
+                b->active[i] = 0;
                 vic.spr_enable &= ~(1 << (FIRST_SPRITE + i));
                 
                 player_die();
@@ -117,21 +114,26 @@ void bombs_update(void) {
 }
 
 void bombs_render(void) {
+    bombs_state* b = _bstate();
     for (int i = 0; i < MAX_BOMBS; i++) {
-        if (g_bombs[i].active) {
+        if (b->active[i]) {
             int s = FIRST_SPRITE + i;
             
             // Update Hardware Registers
-            vic.spr_pos[s].x = g_bombs[i].x & 0xFF;
-            vic.spr_pos[s].y = g_bombs[i].y;
+            vic.spr_pos[s].x = b->x[i] & 0xFF;
+            vic.spr_pos[s].y = b->y[i];
             
             // Handle MSB (X > 255)
             // Note: Using spr_msbx as corrected previously
-            if (g_bombs[i].x > 255) {
+            if (b->x[i] > 255) {
                 vic.spr_msbx |= (1 << s);
             } else {
                 vic.spr_msbx &= ~(1 << s);
             }
         }
     }
+}
+
+bombs_state* bombs_get_state(void) {
+    return &s_bombs_state;
 }
