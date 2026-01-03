@@ -9,6 +9,7 @@
 
 typedef struct {
     unsigned int score;
+    unsigned int high_score;
     unsigned int shots_fired;
     unsigned int next_life_score;
     unsigned char level;
