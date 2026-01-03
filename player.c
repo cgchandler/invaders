@@ -9,12 +9,13 @@
 
 // Top Border (50) + Row 22 (176) - Sprite Top Padding (6) = 220
 #define PLAYER_Y_POS        222
+#define PLAYER_X_POS        172
 #define PLAYER_SPEED        2    
 #define MIN_X               24   
 #define MAX_X               320  
 
 // --- STATE ---
-static player_state s_player_state = { .lives = 3, .default_lives = 3, .player_x = 172 };
+static player_state s_player_state = { .lives = 3, .default_lives = 3, .player_x = PLAYER_X_POS };
 
 static inline player_state* _pstate(void) { return &s_player_state; }
 
@@ -65,7 +66,7 @@ void player_die(void) {
 
 void player_reset_position(void) {
     player_state* p = _pstate();
-    p->player_x = 160;
+    p->player_x = PLAYER_X_POS;
 }
 
 // --- PLAYER MOVEMENT ---

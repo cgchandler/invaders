@@ -41,8 +41,8 @@ byte* const Color  = (byte*)0xD800;
 #define D018_SCREEN_4400_CHAR_5000 0x14
 
 // --- SCREEN LAYOUT ---
-#define ROW_23_OFFSET   (23 * 40) 
-#define ROW_24_OFFSET   (24 * 40) 
+#define ROW_23_OFFSET   920  // (23 * 40) 
+#define ROW_24_OFFSET   960  // (24 * 40) 
 #define CHAR_GROUND     64
 #define CHAR_LIFE       157
 
@@ -126,6 +126,25 @@ void update_lives_display(void)
             Color[pos + 1]  = VCOL_BLACK;
         }
     }
+
+    //DEBUGGING CODE - DISPLAY RESERVES & MAX LIVES AS NUMBERS
+    /*
+    unsigned short pos2 = ROW_24_OFFSET + 20;
+    unsigned char tens = reserves / 10;
+    unsigned char ones = reserves % 10;
+    Screen[pos2]     = tens + 48; 
+    Color[pos2]      = VCOL_WHITE;
+    Screen[pos2 + 1] = ones + 48;
+    Color[pos2 + 1]  = VCOL_WHITE;
+
+    pos2 = ROW_24_OFFSET + 25;
+    tens = gs->max_lives / 10;
+    ones = gs->max_lives % 10;
+    Screen[pos2]     = tens + 48; 
+    Color[pos2]      = VCOL_WHITE;
+    Screen[pos2 + 1] = ones + 48;
+    Color[pos2 + 1]  = VCOL_WHITE;
+    */
 }
 
 static void update_level(void)
@@ -186,7 +205,6 @@ void game_over(void) {
     aliens_reset();
     bonus_reset(); 
     
-    // player_reset_position(); 
 }
 
 void game_init(void) {
@@ -196,8 +214,13 @@ void game_init(void) {
     player_state* pstate = player_get_state();
     pstate->lives = pstate->default_lives;
     game_state* gs = game_get_state();    
+    // Ensure top-level game state is explicitly initialized here so
+    // display code called during startup sees the expected values.
+    gs->score = 0;
     gs->shots_fired = 0;
+    gs->next_life_score = 1500;
     gs->level = 1;
+    gs->max_lives = 18;
 
     screen_init();
     resources_init();
