@@ -54,12 +54,17 @@ static void vic_set_bank_4000(void)
 }
 
 // --- SCORE STATE ---
-/* Score stored in `g_game_state` defined in game.c */
 
 void update_score_display(void)
 {
     game_state* gs = game_get_state();
 
+    // increase high score if needed
+    if (gs->score > gs->high_score) {
+        gs->high_score = gs->score;
+    }
+    
+    // Check for extra life
     if (gs->score >= gs->next_life_score) {
         gs->next_life_score += 1500;
         player_state* pstate = player_get_state();
@@ -70,8 +75,9 @@ void update_score_display(void)
         }
     }
 
+    // Display Score at Row 0, Col 12 (6 chars)
     unsigned int temp = gs->score;
-    unsigned short offset = 17; 
+    unsigned short offset = 6; 
 
     Screen[offset]     = 48 + (unsigned char)((temp / 100000) % 10);
     Screen[offset + 1] = 48 + (unsigned char)((temp / 10000) % 10);
@@ -80,7 +86,15 @@ void update_score_display(void)
     Screen[offset + 4] = 48 + (unsigned char)((temp / 10) % 10);
     Screen[offset + 5] = 48 + (unsigned char)(temp % 10);
 
-    for(int i=0; i<5; i++) Color[offset + i] = VCOL_WHITE;
+    // Display High Score at Row 0, Col 22 (6 chars)
+    temp = gs->high_score;
+    offset = 28;
+    Screen[offset]     = 48 + (unsigned char)((temp / 100000) % 10);
+    Screen[offset + 1] = 48 + (unsigned char)((temp / 10000) % 10);
+    Screen[offset + 2] = 48 + (unsigned char)((temp / 1000) % 10);
+    Screen[offset + 3] = 48 + (unsigned char)((temp / 100   ) % 10);
+    Screen[offset + 4] = 48 + (unsigned char)((temp / 10) % 10);
+    Screen[offset + 5] = 48 + (unsigned char)(temp % 10);    
 }
 
 extern void draw_ground(void)
@@ -93,11 +107,24 @@ extern void draw_ground(void)
 
 static void screen_init(void)
 {
-    for (unsigned i = 0; i < 1000; i++)
-        Screen[i] = ' '; 
 
-    memset(Color, 1, 1000);
+    //for (unsigned i = 0; i < 1000; i++)
+    //    Screen[i] = ' '; 
 
+    // set all screen chars to space
+    memset(Screen, ' ', 1000);
+
+    // set text color to white for entire screen
+    memset(Color, VCOL_WHITE, 1000);
+
+    // Display the game name "INVADERS" at Row 0, centered at Col 16
+    const char* title = "INVADERS";
+    unsigned short offset = 16; 
+    for (unsigned char i = 0; title[i] != 0; i++) {
+        Screen[offset + i] = title[i] - 'A' + 1;
+        Color[offset + i]  = VCOL_YELLOW;
+    }                   
+    
     draw_ground();
 
     update_score_display();
@@ -217,6 +244,7 @@ void game_init(void) {
     // Ensure top-level game state is explicitly initialized here so
     // display code called during startup sees the expected values.
     gs->score = 0;
+    gs->high_score = 0;
     gs->shots_fired = 0;
     gs->next_life_score = 1500;
     gs->level = 1;
