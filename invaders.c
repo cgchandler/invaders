@@ -15,12 +15,22 @@
 
 // Character set
 static const unsigned char charset[2048] = {
+// compiler directive to ignore for intellisense parsing which isn't recognizing #embed
+#ifdef __INTELLISENSE__
+    0
+#else
     #embed "charset/invaders_charset.bin"
+#endif
 };
 
 // Sprite assets
 static const unsigned char all_sprites_data[] = {
-    #embed "sprites/invaders.bin" 
+// compiler directive to ignore for intellisense parsing which isn't recognizing #embed
+#ifdef __INTELLISENSE__
+    0
+#else
+    #embed "sprites/invaders.bin"
+#endif
 };
 
 // Single Screen Buffer at $4400 (VIC Bank 1 offset $0400)
@@ -183,6 +193,12 @@ void game_init(void) {
     vic.color_border = VCOL_BLACK;
     vic.color_back   = VCOL_BLACK;
 
+    player_state* pstate = player_get_state();
+    pstate->lives = pstate->default_lives;
+    game_state* gs = game_get_state();    
+    gs->shots_fired = 0;
+    gs->level = 1;
+
     screen_init();
     resources_init();
     random_init();
@@ -199,10 +215,6 @@ void game_init(void) {
     missile_init();
     bombs_init();
     bonus_init(); 
-
-    player_state* pstate = player_get_state();
-    pstate->lives = pstate->default_lives;
-    game_get_state()->shots_fired = 0;
 }
 
 /* Forward declarations for loop-phase helpers */
