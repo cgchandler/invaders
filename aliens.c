@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <c64/vic.h>
 #include <c64/types.h>
+#include "player.h"
 
 // --- CONFIGURATION ---
 #define START_ROW       2
@@ -22,18 +23,11 @@
 #define EXPLOSION_SPEED  8   // How many frames to stay on each stage (slower = bigger number)
 #define EXPLOSION_BASE   160 // The first character of your explosion set
 
-// MOVED TO TOP so update_explosions can see it
-extern byte* Screen; 
-// Added definition for Color RAM if not defined globally
-#define Color ((byte*)0xD800)
-
-extern unsigned int g_player_x; 
-
 extern void game_over(void);
 
 // --- LOOKUP TABLES ---
 // FIX: Expanded table to 32 entries to prevent overflow when aliens hit bottom
-static const unsigned short g_row_offsets[32] = {
+static const unsigned short row_offsets[32] = {
     0,   40,  80,  120, 160, 200, 240, 280, 320, 360,
     400, 440, 480, 520, 560, 600, 640, 680, 720, 760,
     800, 840, 880, 920, 960, 1000, 
@@ -65,32 +59,20 @@ struct Alien {
     unsigned char anim_stage; // Tracks which of the 4 explosion sizes to draw (0-3)
 };
 
-static struct Alien g_aliens[TOTAL_ALIENS];
-unsigned char g_alive_count = TOTAL_ALIENS;
-
-static int g_grid_x = START_COL;
-extern int g_grid_y = START_ROW;
-static int g_old_grid_x = START_COL;
-static int g_old_grid_y = START_ROW;
-
-static int g_dir = 1;       
-static int g_next_dir = 1;  
-static int g_state = 0;     
-static unsigned char g_anim_frame = 0;
-static unsigned char g_timer = 0;
-static unsigned char g_current_delay = 0;
-
-static unsigned char g_render_dirty = 1; 
+static struct Alien aliens[TOTAL_ALIENS];
+// Encapsulated public state (backwards-compatible names live in header macros)
+aliens_state g_aliens_state = { 0 };
 
 // --- LOGIC ---
 
-void aliens_init(byte* screen) {
-    g_alive_count = 0;
-    g_grid_x = START_COL; 
-    g_grid_y = START_ROW;
-    g_dir = 1;
-    g_timer = MOVEMENT_DELAY;
-    g_render_dirty = 1;
+void aliens_init(void) {
+    aliens_state* a = aliens_get_state();
+    a->alive_count = 0;
+    a->grid_x = START_COL; 
+    a->grid_y = START_ROW;
+    a->dir = 1;
+    a->timer = MOVEMENT_DELAY;
+    a->render_dirty = 1;
 
     static const unsigned char ROW_COLORS[5] = {
         VCOL_LT_RED, VCOL_YELLOW, VCOL_GREEN, VCOL_PURPLE, VCOL_CYAN
@@ -109,41 +91,41 @@ void aliens_init(byte* screen) {
         for (unsigned char c = 0; c < ALIENS_PER_ROW; c++) {
             if (i >= TOTAL_ALIENS) break; 
 
-            g_aliens[i].state = STATE_ALIVE;
-            g_aliens[i].type = type;
-            g_aliens[i].rel_y = r * 2; 
-            g_aliens[i].rel_x = c * 3; 
-            g_aliens[i].color = row_color;
+            aliens[i].state = STATE_ALIVE;
+            aliens[i].type = type;
+            aliens[i].rel_y = r * 2; 
+            aliens[i].rel_x = c * 3; 
+            aliens[i].color = row_color;
             
-            g_alive_count++;
+            a->alive_count++;
             i++;
         }
     }
 }
 
-void update_explosions(void) {
-    // Un-commented and fixed variable case to match extern/define
+static void update_explosions(void) {
+    aliens_state* a = aliens_get_state();
     
     for (int i = 0; i < TOTAL_ALIENS; i++) {
         // We only care about aliens currently exploding
-        if (g_aliens[i].state == STATE_EXPLODING) {
+        if (aliens[i].state == STATE_EXPLODING) {
             
-            // 1. Handle Timing
-            g_aliens[i].anim_timer++;
+            // Handle Timing
+            aliens[i].anim_timer++;
             
-            if (g_aliens[i].anim_timer >= EXPLOSION_SPEED) {
+            if (aliens[i].anim_timer >= EXPLOSION_SPEED) {
                 // Time to move to next frame
-                g_aliens[i].anim_timer = 0;
-                g_aliens[i].anim_stage++;
+                aliens[i].anim_timer = 0;
+                aliens[i].anim_stage++;
 
-                // 2. Check if Explosion is Done
-                if (g_aliens[i].anim_stage >= 4) {
+                // Check if Explosion is Done
+                if (aliens[i].anim_stage >= 4) {
                     // Animation finished (0, 1, 2, 3 are done)
-                    g_aliens[i].state = STATE_DEAD;
+                    aliens[i].state = STATE_DEAD;
 
-                    // FIX: Use GRID coordinates to calculate screen pos
-                    int r = g_grid_y + g_aliens[i].rel_y;
-                    int c = g_grid_x + g_aliens[i].rel_x;
+                    // Use GRID coordinates to calculate screen pos
+                    int r = a->grid_y + aliens[i].rel_y;
+                    int c = a->grid_x + aliens[i].rel_x;
                     
                     int offset = (r * 40) + c;
                     
@@ -155,12 +137,12 @@ void update_explosions(void) {
                 }
             }
 
-            // 3. Draw the Explosion Frame
-            int current_char = EXPLOSION_BASE + (g_aliens[i].anim_stage * 2);
-            
-            // FIX: Use GRID coordinates to calculate screen pos
-            int r = g_grid_y + g_aliens[i].rel_y;
-            int c = g_grid_x + g_aliens[i].rel_x;
+            //  Draw the Explosion Frame
+                int current_char = EXPLOSION_BASE + (aliens[i].anim_stage * 2);
+
+                // Use GRID coordinates to calculate screen pos
+                    int r = a->grid_y + aliens[i].rel_y;
+                    int c = a->grid_x + aliens[i].rel_x;
             
             int offset = (r * 40) + c;
             
@@ -178,85 +160,89 @@ void update_explosions(void) {
 }
 
 void aliens_update(void) {
-    g_old_grid_x = g_grid_x;
-    g_old_grid_y = g_grid_y;
+    aliens_state* a = aliens_get_state();
+    a->old_grid_x = a->grid_x;
+    a->old_grid_y = a->grid_y;
 
-    if (g_timer > 0) {
-        g_timer--;
+    player_state* pstate = player_get_state();
+
+    if (a->timer > 0) {
+        a->timer--;
         return; 
     }
 
     sfx_march();
 
     /*
-    unsigned char safe_count = g_alive_count;
+    unsigned char safe_count = a->alive_count;
     if (safe_count > 55) safe_count = 55; 
 
-    //g_timer = SPEED_TABLE[g_alive_count];
-    g_timer = safe_count + 1 - (g_level - 1);   // linear speed instead of table lookup
-    if (g_timer < 2) {g_timer = 2;}
+    //a->timer = SPEED_TABLE[g_alive_count];
+    //a->timer = safe_count + 1 - (g_level - 1);   // linear speed instead of table lookup
+    //if (a->timer < 2) {a->timer = 2;}
     */
 
-    unsigned char safe_count = g_alive_count;
+    unsigned char safe_count = a->alive_count;
     if (safe_count > 55) safe_count = 55; 
     
     // Calculate speed deduction based on level
-    int level_bonus = g_level - 1;
+    game_state* gs = game_get_state();
+    int level_bonus = gs->level - 1;
     if (level_bonus > 50) level_bonus = 50; 
     
     int calc_speed = safe_count + 1 - level_bonus;
     if (calc_speed < 2) calc_speed = 2;
     
     // STORE IT so we can debug it without recalculating
-    g_current_delay = (unsigned char)calc_speed; 
-    g_timer = g_current_delay;
+    a->current_delay = (unsigned char)calc_speed; 
+    a->timer = a->current_delay;
 
     // For debugging
     //g_timer = 56;
 
-    g_render_dirty = 1;       
+    a->render_dirty = 1;       
 
-    g_anim_frame ^= 1;
+    a->anim_frame ^= 1;
 
-    if (g_state == 0) {
+    if (a->state == 0) {
         int min_x = 100;
         int max_x = -100;
         
         for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
-            if (!g_aliens[i].state) continue;
+            if (!aliens[i].state) continue;
             
-            int ax = g_grid_x + g_aliens[i].rel_x;
+            int ax = a->grid_x + aliens[i].rel_x;
             if (ax < min_x) min_x = ax;
             if (ax > max_x) max_x = ax;
         }
 
-        if (g_dir == 1) { 
+        if (a->dir == 1) { 
             if (max_x >= 38) { 
-                g_state = 1; 
-                g_next_dir = -1; 
+                a->state = 1; 
+                a->next_dir = -1; 
             } else {
-                g_grid_x++;
+                a->grid_x++;
             }
         } else { 
             if (min_x <= 0) {
-                g_state = 1; 
-                g_next_dir = 1; 
+                a->state = 1; 
+                a->next_dir = 1; 
             } else {
-                g_grid_x--;
+                a->grid_x--;
             }
         }
     } 
     else {
-        if (g_grid_y < COLLIDE_ROW) {
-            g_grid_y += DROP_ROWS;
+        if (a->grid_y < COLLIDE_ROW) {
+            a->grid_y += DROP_ROWS;
         }
-        g_dir = g_next_dir;
-        g_state = 0; 
+        a->dir = a->next_dir;
+        a->state = 0; 
 
         // Check if ANY active alien has hit the bottom
-        for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
-             if (!g_aliens[i].state) continue;
-             int alien_y = g_grid_y + g_aliens[i].rel_y;
+           for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
+               if (!aliens[i].state) continue;
+               int alien_y = a->grid_y + aliens[i].rel_y;
 
              if (alien_y >= COLLIDE_ROW) {
                  // If they hit the ground, the base is lost regardless of lives.
@@ -266,17 +252,17 @@ void aliens_update(void) {
         }
     }
 
-    int p_pixel_x = g_player_x;
+    int p_pixel_x = pstate->player_x;
     if (p_pixel_x < 24) p_pixel_x = 24;
 
     int p_col_start = (p_pixel_x - 24) / 8;
     int p_col_end   = (p_pixel_x - 24 + 23) / 8; 
 
-    for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
-         if (!g_aliens[i].state) continue;
+        for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
+            if (!aliens[i].state) continue;
 
-         int alien_y = g_grid_y + g_aliens[i].rel_y;
-         int alien_x = g_grid_x + g_aliens[i].rel_x; 
+            int alien_y = a->grid_y + aliens[i].rel_y;
+            int alien_x = a->grid_x + aliens[i].rel_x; 
 
          if (alien_y >= PLAYER_HIT_ROW) {
              int alien_right = alien_x + 1;
@@ -291,100 +277,102 @@ void aliens_update(void) {
 
 // --- RENDER ---
 
-void aliens_render(byte* screen) {
+void aliens_render() {
 
-    // FIX: Update explosions even if aliens aren't moving (dirty=0)
-    if (!g_render_dirty) {
+    aliens_state* a = aliens_get_state();
+
+    // Update explosions even if aliens aren't moving (dirty=0)
+    if (!a->render_dirty) {
         update_explosions();
         return;
     }
     
-    g_render_dirty = 0;
+    a->render_dirty = 0;
 
     for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
         // Clearing loop: Clear old positions for ALL non-dead aliens
         // We still need to clear old position for Exploding aliens if the grid moved
-        if (g_aliens[i].state == STATE_DEAD) continue;
+        if (aliens[i].state == STATE_DEAD) continue;
         
-        unsigned short r = g_old_grid_y + g_aliens[i].rel_y;
+        unsigned short r = a->old_grid_y + aliens[i].rel_y;
         if (r >= 23) continue; 
 
         // Use safe offset calculation or ensure r < 32
-        unsigned short offset = g_row_offsets[r] + g_old_grid_x + g_aliens[i].rel_x;
+        unsigned short offset = row_offsets[r] + a->old_grid_x + aliens[i].rel_x;
         
-        screen[offset] = ' '; 
-        screen[offset + 1] = ' ';
+        Screen[offset] = ' '; 
+        Screen[offset + 1] = ' ';
     }
 
     for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
         // DRAWING loop
-        // FIX: Do NOT draw normal aliens if they are Exploding.
+        // Do NOT draw normal aliens if they are Exploding.
         // update_explosions handles drawing them.
-        if (g_aliens[i].state != STATE_ALIVE) continue;
+        if (aliens[i].state != STATE_ALIVE) continue;
 
-        unsigned short r = g_grid_y + g_aliens[i].rel_y;
+        unsigned short r = a->grid_y + aliens[i].rel_y;
         if (r > 24) continue;
 
-        unsigned short offset = g_row_offsets[r] + g_grid_x + g_aliens[i].rel_x;
-        unsigned char t = g_aliens[i].type;
+        unsigned short offset = row_offsets[r] + a->grid_x + aliens[i].rel_x;
+        unsigned char t = aliens[i].type;
         
-        screen[offset]     = ALIEN_CHARS[t][g_anim_frame][0];
-        screen[offset + 1] = ALIEN_CHARS[t][g_anim_frame][1];
+        Screen[offset]     = ALIEN_CHARS[t][a->anim_frame][0];
+        Screen[offset + 1] = ALIEN_CHARS[t][a->anim_frame][1];
 
-        unsigned char c = g_aliens[i].color;
+        unsigned char c = aliens[i].color;
         Color[offset]     = c;
         Color[offset + 1] = c;
     }
     
-    // FIX: Update explosions AFTER the clearing/drawing loops.
+    // Update explosions AFTER the clearing/drawing loops.
     // This ensures the explosion is drawn on top and not wiped by the clearing loop.
     update_explosions();
 }
 
-// extern byte* Screen; // MOVED TO TOP
-
 int aliens_check_hit(unsigned char col, unsigned char row) {
-    if (col < g_grid_x || row < g_grid_y) return 0;
+    aliens_state* a = aliens_get_state();
+    game_state* gs = game_get_state();
+    if (col < a->grid_x || row < a->grid_y) return 0;
 
-    unsigned char target_rel_x = col - g_grid_x;
-    unsigned char target_rel_y = row - g_grid_y;
+    unsigned char target_rel_x = col - a->grid_x;
+    unsigned char target_rel_y = row - a->grid_y;
 
     for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
-        if (g_aliens[i].state == STATE_DEAD) continue;
+        if (aliens[i].state == STATE_DEAD) continue;
 
-        // FIX: Check Top Row (rel_y) AND Bottom Row (rel_y + 1)
+        // Check Top Row (rel_y) AND Bottom Row (rel_y + 1)
         // This ensures the missile hits even if aligned with the alien's feet.
-        if (target_rel_y == g_aliens[i].rel_y || target_rel_y == g_aliens[i].rel_y + 1) {
+        if (target_rel_y == aliens[i].rel_y || target_rel_y == aliens[i].rel_y + 1) {
             
-            if (g_aliens[i].rel_x == target_rel_x || g_aliens[i].rel_x + 1 == target_rel_x) {
+            if (aliens[i].rel_x == target_rel_x || aliens[i].rel_x + 1 == target_rel_x) {
                 
-                unsigned short r = g_grid_y + g_aliens[i].rel_y;
+                unsigned short r = a->grid_y + aliens[i].rel_y;
                 // Calculate Offset manually to be safe or use expanded table
-                unsigned short offset = (r * 40) + g_grid_x + g_aliens[i].rel_x;
+                unsigned short offset = (r * 40) + a->grid_x + aliens[i].rel_x;
                 
                 if (offset < 1000) { 
                     Screen[offset] = ' ';
                     Screen[offset + 1] = ' ';
                 }
 
-                unsigned short old_r = g_old_grid_y + g_aliens[i].rel_y;
-                unsigned short old_offset = (old_r * 40) + g_old_grid_x + g_aliens[i].rel_x;
+                unsigned short old_r = a->old_grid_y + aliens[i].rel_y;
+                unsigned short old_offset = (old_r * 40) + a->old_grid_x + aliens[i].rel_x;
 
                 if (old_offset < 1000) { 
                     Screen[old_offset] = ' ';
                     Screen[old_offset + 1] = ' ';
                 }
 
-                g_aliens[i].state = STATE_EXPLODING;
-                g_aliens[i].anim_stage = 0;
-                g_aliens[i].anim_timer = 0;
+                aliens[i].state = STATE_EXPLODING;
+                aliens[i].anim_stage = 0;
+                aliens[i].anim_timer = 0;
                 sfx_alien_hit();
-                g_alive_count--;
-                g_render_dirty = 1; 
+                a->alive_count--;
+                a->render_dirty = 1;
 
-                if (g_aliens[i].type == 0)      g_score += 30;
-                else if (g_aliens[i].type == 1) g_score += 20;
-                else                            g_score += 10;
+                if (aliens[i].type == 0)      gs->score += 30;
+                else if (aliens[i].type == 1) gs->score += 20;
+                else                            gs->score += 10;
 
                 update_score_display();
                 return 1; 
@@ -395,44 +383,47 @@ int aliens_check_hit(unsigned char col, unsigned char row) {
 }
 
 int aliens_cleared(void) {
-    return g_alive_count < 1;
+    aliens_state* a = aliens_get_state();
+    return a->alive_count < 1;
 }
 
 void aliens_reset(void) {
-    g_grid_x = START_COL; 
-    g_grid_y = START_ROW;
+    aliens_state* a = aliens_get_state();
+    a->grid_x = START_COL; 
+    a->grid_y = START_ROW;
     
-    g_timer      = 0;
-    g_anim_frame = 0;
-    g_dir        = 1;  
-    g_next_dir   = 1;  
-    g_state      = 0;  
+    a->timer      = 0;
+    a->anim_frame = 0;
+    a->dir        = 1;  
+    a->next_dir   = 1;  
+    a->state      = 0;  
     
     for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
-        g_aliens[i].state = STATE_ALIVE;
+        aliens[i].state = STATE_ALIVE;
     }
-    g_alive_count = TOTAL_ALIENS;
-    g_render_dirty = 1;
+    a->alive_count = TOTAL_ALIENS;
+    a->render_dirty = 1;
 }
 
 // Helper to find a random active alien for bomb dropping
 int aliens_get_random_shooter(int* out_x, int* out_y) {
-    if (g_alive_count == 0) return 0;
+    aliens_state* a = aliens_get_state();
+    if (a->alive_count == 0) return 0;
     
     // Pick a random index from the survivors
-    int pick = rand() % g_alive_count;
+    int pick = rand() % a->alive_count;
     int current = 0;
     
     for (int i = 0; i < TOTAL_ALIENS; i++) {
-        if (g_aliens[i].state == STATE_ALIVE) {
+        if (aliens[i].state == STATE_ALIVE) {
             if (current == pick) {
                 // Found the chosen one! 
                 // Convert Grid Coordinates to Screen Pixels for the sprite.
                 // C64 Standard Screen Text Area starts at X=24, Y=50 (approx)
                 // We add +12 to X to center the bomb on the 2-char wide alien.
                 
-                *out_x = (g_grid_x + g_aliens[i].rel_x) * 8 + 24 + 4; 
-                *out_y = (g_grid_y + g_aliens[i].rel_y) * 8 + 50 + 16; 
+                *out_x = (a->grid_x + aliens[i].rel_x) * 8 + 24 + 4; 
+                *out_y = (a->grid_y + aliens[i].rel_y) * 8 + 50 + 16; 
                 return 1;
             }
             current++;
@@ -446,8 +437,9 @@ int aliens_get_random_shooter(int* out_x, int* out_y) {
 // DEBUG: Display current speed (Delay Frames) on bottom right
 void aliens_debug_speed(void) {
     // 1. Get the digits from our stored setting
-    unsigned char tens = g_current_delay / 10;
-    unsigned char ones = g_current_delay % 10;
+    aliens_state* a = aliens_get_state();
+    unsigned char tens = a->current_delay / 10;
+    unsigned char ones = a->current_delay % 10;
     
     // 2. Draw at Row 24, Columns 38-39 (Right Aligned)
     unsigned short offset = 960 + 38;
@@ -459,4 +451,8 @@ void aliens_debug_speed(void) {
     // Force White Color
     Color[offset]     = VCOL_WHITE;
     Color[offset + 1] = VCOL_WHITE;
+}
+
+aliens_state* aliens_get_state(void) {
+    return &g_aliens_state;
 }

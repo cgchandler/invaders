@@ -7,15 +7,13 @@
 // -- CONFIGURATION --
 #define BLOCK_CHAR    159   // Solid character in invaders custom charset
 #define TEXT_COLOR    VCOL_WHITE
-#define SCREEN_RAM    0x4400
-#define COLOR_RAM     0xD800
 #define SCREEN_W      40
 
 enum GameOverCharacters { CHAR_G, CHAR_A, CHAR_M, CHAR_E, CHAR_O, CHAR_V, CHAR_R };
 
-// Simple 5x5 font for G, A, M, E, O, V, R
+// Simple 5x5 font for G, A, M, E, O, V, R (file-local)
 // 1 = draw block, 0 = empty space
-const uint8_t BIG_FONT[][25] = {
+static const uint8_t BIG_FONT[][25] = {
     { // G
         1,1,1,1,1,
         1,0,0,0,0,
@@ -67,26 +65,23 @@ const uint8_t BIG_FONT[][25] = {
     }
 };
 
-// Helper to draw a single big character
+// Helper to draw a single big character (file-local)
 // x, y: Top-left coordinate of the letter
 // char_idx: Index in BIG_FONT array (0=G, 1=A, etc.)
-void draw_big_char(int x, int y, int char_idx) {
-    uint8_t* screen = (uint8_t*)SCREEN_RAM;
-    uint8_t* color  = (uint8_t*)COLOR_RAM;
-    
+static void draw_big_char(int x, int y, int char_idx) {    
     for (int row = 0; row < 5; row++) {
         for (int col = 0; col < 5; col++) {
             if (BIG_FONT[char_idx][(row * 5) + col]) {
                 int offset = (y + row) * SCREEN_W + (x + col);
-                screen[offset] = BLOCK_CHAR;
-                color[offset]  = TEXT_COLOR;
+                Screen[offset] = BLOCK_CHAR;
+                Color[offset]  = TEXT_COLOR;
             }
         }
     }
 }
 
-// Simple VBlank wait (assuming standard 60fps NTSC)
-void wait_frames(int frames) {
+// Simple VBlank wait (assuming standard 60fps NTSC) - file-local
+static void wait_frames(int frames) {
     for (int i = 0; i < frames; i++) {
         vic_waitFrame();
     }
