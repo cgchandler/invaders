@@ -32,6 +32,10 @@ static int is_space_pressed(void) {
     return ((*(volatile byte*)0xDC01) & 0x10) == 0;
 }
 
+/* Track previous space state to detect a single keypress (rising edge).
+   0 = not pressed last frame, 1 = pressed last frame */
+static unsigned char space_prev = 0;
+
 // Helper to check a sprite's visible pixels (two columns at offsets 11 and 12)
 // against the text grid. `sprite_x` is the sprite's hardware X (left) coordinate.
 // Returns 1 if hit, 0 if miss.
@@ -72,7 +76,16 @@ static int check_grid_hit_from_sprite(unsigned int sprite_x, unsigned int pixel_
             }
         }
 
-        // Check for base blocks
+        // Prefer hitting the lower base cell first (missile travels up).
+        // If a base exists on the row below, damage that first.
+        int lower_row = row + 1;
+        if (lower_row < 25) {
+            if (bases_check_hit((unsigned char)col, (unsigned char)lower_row)) {
+                return 1;
+            }
+        }
+
+        // Then check the computed row
         if (bases_check_hit((unsigned char)col, (unsigned char)row)) {
             return 1;
         }
@@ -103,16 +116,19 @@ void missile_update(void) {
     player_state* pstate = player_get_state();
     missile_state* m = _mstate();
     if (!m->active) {
-        if (is_space_pressed()) {
+        unsigned char curr_space = is_space_pressed() ? 1 : 0;
+        if (curr_space && !space_prev) {
             m->active = 1;
             sfx_fire_missile();
             // Launch Alignment:
-            // Since the missile art is centered in the 24px sprite, 
+            // Since the missile art is centered in the 24px sprite,
             // aligning Sprite X to Player X aligns them perfectly.
             // X: Shift 1 pixel left from player position
-            m->x = pstate->player_x - 1; 
-            m->y = 211; 
+            m->x = pstate->player_x - 1;
+            m->y = 211;
         }
+        /* Update previous state so subsequent frames require key release */
+        space_prev = curr_space;
         return;
     }
 
