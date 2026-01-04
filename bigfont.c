@@ -1,90 +1,99 @@
 #include "bigfont.h"
 #include <c64/vic.h>
+#include "config.h"
 
 // Config
-#define BLOCK_CHAR 159
+//#define BLOCK_CHAR 159
 #define SCREEN_W 40
-#define BIG_WIDTH 4
+#define BIG_WIDTH 4     // Each big char is 4 columns wide
+#define BIG_HEIGHT 5    // Each big char is 5 rows tall
+
+#define CH_SPACE  32    // space character
+#define CH_BLOCK  159   // solid block
+#define CH_TL     105   // top-left corner
+#define CH_TR     95    // top-right corner 
+#define CH_BL     168   // bottom-left corner
+#define CH_BR     169   // bottom-right corner
 
 // BIG_FONT contains only the letters needed by the game: G A M E O V R I N D S
 // Order: G,A,M,E,O,V,R,I,N,D,S
 static const unsigned char BIG_FONT[][BIG_WIDTH * 5] = {
     { // G
-        1,1,1,1,
-        1,0,0,0,
-        1,0,1,1,
-        1,0,0,1,
-        1,1,1,1
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_SPACE,
+        CH_BLOCK,CH_SPACE,CH_BLOCK,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK
     },
     { // A
-        0,1,1,0,
-        1,0,0,1,
-        1,1,1,1,
-        1,0,0,1,
-        1,0,0,1
+        CH_SPACE,CH_BR,   CH_BL,   CH_SPACE,
+        CH_BR,   CH_TL,   CH_TR,   CH_BL,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK
     },
-    { // M
-        1,0,0,1,
-        1,1,1,1,
-        1,0,1,1,
-        1,0,0,1,
-        1,0,0,1
+    { // M  
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_BL,   CH_BR,   CH_BLOCK,
+        CH_BLOCK,CH_TR,   CH_TL,   CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK
     },
     { // E
-        1,1,1,1,
-        1,0,0,0,
-        1,1,1,0,
-        1,0,0,0,
-        1,1,1,1
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_SPACE,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_SPACE,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_SPACE,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK
     },
     { // O
-        1,1,1,1,
-        1,0,0,1,
-        1,0,0,1,
-        1,0,0,1,
-        1,1,1,1
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK
     },
     { // V
-        1,0,0,1,
-        1,0,0,1,
-        1,0,0,1,
-        1,0,0,1,
-        0,1,1,0
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_TR,   CH_BL,   CH_BR,   CH_TL,
+        CH_SPACE,CH_TR,   CH_TL,   CH_SPACE
     },
     { // R
-        1,1,1,0,
-        1,0,0,1,
-        1,1,1,0,
-        1,0,0,1,
-        1,0,0,1
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BL,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_TL,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BL,
+        CH_BLOCK,CH_SPACE,CH_TR,CH_BLOCK
     },
     { // I
-        0,1,1,1,
-        0,0,1,0,
-        0,0,1,0,
-        0,0,1,0,
-        0,1,1,1
+        CH_SPACE,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_SPACE,CH_SPACE,CH_BLOCK,CH_SPACE,
+        CH_SPACE,CH_SPACE,CH_BLOCK,CH_SPACE,
+        CH_SPACE,CH_SPACE,CH_BLOCK,CH_SPACE,
+        CH_SPACE,CH_BLOCK,CH_BLOCK,CH_BLOCK
     },
-    { // N
-        1,0,0,1,
-        1,1,0,1,
-        1,0,1,1,
-        1,0,0,1,
-        1,0,0,1
+    { // N 
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_BL,   CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_TR,   CH_BL,   CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_TR,   CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK
     },
     { // D
-        1,1,1,0,
-        1,0,0,1,
-        1,0,0,1,
-        1,0,0,1,
-        1,1,1,0
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BL,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_TL
     },
     { // S
-        1,1,1,1,
-        1,0,0,0,
-        1,1,1,1,
-        0,0,0,1,
-        1,1,1,1
+        CH_BLOCK,CH_BLOCK,CH_BLOCK, CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_SPACE,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_SPACE,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK
     }
 };
 
@@ -113,7 +122,8 @@ void draw_big_char_at(int x, int y, char ch, byte color) {
         for (int col = 0; col < BIG_WIDTH; col++) {
             if (BIG_FONT[idx][row * BIG_WIDTH + col]) {
                 int offset = (y + row) * SCREEN_W + (x + col);
-                Screen[offset] = BLOCK_CHAR;
+                //Screen[offset] = BLOCK_CHAR;
+                Screen[offset] = BIG_FONT[idx][row * BIG_WIDTH + col];
                 Color[offset]  = color;
             }
         }
