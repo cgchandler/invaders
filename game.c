@@ -6,6 +6,7 @@
  */
 game_state g_game_state = {
     .score = 0,
+    .high_score = 0,
     .shots_fired = 0,
     .next_life_score = 1500,
     .level = 1,
