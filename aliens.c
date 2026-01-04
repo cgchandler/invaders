@@ -3,6 +3,7 @@
 #include <c64/vic.h>
 #include <c64/types.h>
 #include "player.h"
+#include "bases.h"
 
 // --- CONFIGURATION ---
 #define START_ROW       2
@@ -258,8 +259,58 @@ void aliens_update(void) {
     int p_col_start = (p_pixel_x - 24) / 8;
     int p_col_end   = (p_pixel_x - 24 + 23) / 8; 
 
+    /* Check for alien collisions with bases. If an alien overlaps a base
+       character its character is destroyed and the alien is removed and
+       the player awarded points. */
+    for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
+        if (aliens[i].state != STATE_ALIVE) continue;
+
+        int alien_y_top = a->grid_y + aliens[i].rel_y;
+        int alien_x = a->grid_x + aliens[i].rel_x;
+
+        /* Aliens occupy two text rows (top and bottom). Check both. */
+        for (int check_row = alien_y_top; check_row <= alien_y_top + 1; check_row++) {
+            if (check_row == BASE_TOP_ROW || check_row == BASE_BOTTOM_ROW) {
+                /* Check both left and right character columns */
+                for (int cx = 0; cx <= 1; cx++) {
+                    int col = alien_x + cx;
+                    if (col < 0 || col >= 40) continue;
+                    if (bases_check_hit((unsigned char)col, (unsigned char)check_row)) {
+                        /* Start explosion animation (same as missile hit) */
+                        unsigned short r = a->grid_y + aliens[i].rel_y;
+                        unsigned short offset = (r * 40) + a->grid_x + aliens[i].rel_x;
+                        if (offset < 1000) {
+                            Screen[offset] = ' ';
+                            Screen[offset + 1] = ' ';
+                        }
+
+                        unsigned short old_r = a->old_grid_y + aliens[i].rel_y;
+                        unsigned short old_offset = (old_r * 40) + a->old_grid_x + aliens[i].rel_x;
+                        if (old_offset < 1000) {
+                            Screen[old_offset] = ' ';
+                            Screen[old_offset + 1] = ' ';
+                        }
+
+                        aliens[i].state = STATE_EXPLODING;
+                        aliens[i].anim_stage = 0;
+                        aliens[i].anim_timer = 0;
+                        sfx_alien_hit();
+                        a->alive_count--;
+                        a->render_dirty = 1;
+                        if (aliens[i].type == 0)      gs->score += 30;
+                        else if (aliens[i].type == 1) gs->score += 20;
+                        else                            gs->score += 10;
+                        update_score_display();
+                        break; /* stop checking columns for this alien */
+                    }
+                }
+            }
+            if (aliens[i].state == STATE_DEAD) break;
+        }
+    }
+
         for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
-            if (!aliens[i].state) continue;
+            if (aliens[i].state != STATE_ALIVE) continue;
 
             int alien_y = a->grid_y + aliens[i].rel_y;
             int alien_x = a->grid_x + aliens[i].rel_x; 

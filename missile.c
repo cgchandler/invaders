@@ -6,6 +6,7 @@
 #include <c64/types.h>
 
 #include "config.h"
+#include "bases.h"
 // --- CONFIGURATION ---
 // Sprite Pointer is defined in config.h (MISSILE_SPRITE_PTR)
 #define MISSILE_SPEED       2   // Pixels per frame
@@ -31,33 +32,49 @@ static int is_space_pressed(void) {
     return ((*(volatile byte*)0xDC01) & 0x10) == 0;
 }
 
-// Helper to check a specific pixel point against the grid
-// Returns 1 if hit, 0 if miss
-static int check_grid_hit(unsigned int pixel_x, unsigned int pixel_y) {
-    
-    // Boundary Checks
-    if (pixel_x < SCREEN_LEFT_EDGE || pixel_y < SCREEN_TOP_EDGE) return 0;
+// Helper to check a sprite's visible pixels (two columns at offsets 11 and 12)
+// against the text grid. `sprite_x` is the sprite's hardware X (left) coordinate.
+// Returns 1 if hit, 0 if miss.
+static int check_grid_hit_from_sprite(unsigned int sprite_x, unsigned int pixel_y) {
 
-    // Convert Pixel to Grid
-    unsigned char col = (pixel_x - SCREEN_LEFT_EDGE) / 8;
-    unsigned char row = (pixel_y - SCREEN_TOP_EDGE) / 8;
+    // convert both visible sprite pixel columns (11 and 12 within sprite)
+    unsigned int px1 = sprite_x + 11;
+    unsigned int px2 = sprite_x + 12;
 
-    if (col >= 40 || row >= 25) return 0;
+    // Boundary Checks (use right-most pixel)
+    if (px2 < SCREEN_LEFT_EDGE || pixel_y < SCREEN_TOP_EDGE) return 0;
 
-    // Peek Screen Memory
-    unsigned char char_code = Screen[row * 40 + col];
+    // Convert Pixel to Grid for both pixels
+    int col1 = (int)(px1 - SCREEN_LEFT_EDGE) / 8;
+    int col2 = (int)(px2 - SCREEN_LEFT_EDGE) / 8;
+    int row  = (int)(pixel_y - SCREEN_TOP_EDGE) / 8;
 
-    // Bonus ship is a sprite, not in Screen RAM
-    // bonus_check_hit returns 0 or the points awarded
-    if (bonus_check_hit(col, row) != 0) {
-        return 1;
-    }
+    // Validate row
+    if (row < 0 || row >= 25) return 0;
 
-    // Check for Alien (Range 128-143)
-    if (char_code >= 128 && char_code <= 143) {
-        // We found a char, now ask aliens.c if it's a valid target
-        if (aliens_check_hit(col, row)) {
-            return 1; // Real hit confirmed
+    // Check both columns (they may map to same column)
+    int cols[2] = { col1, col2 };
+    for (int i = 0; i < 2; i++) {
+        int col = cols[i];
+        if (col < 0 || col >= 40) continue;
+
+        unsigned char char_code = Screen[row * 40 + col];
+
+        // Bonus ship is a sprite, not in Screen RAM
+        if (bonus_check_hit((unsigned char)col, (unsigned char)row) != 0) {
+            return 1;
+        }
+
+        // Check for Alien (Range 128-143)
+        if (char_code >= 128 && char_code <= 143) {
+            if (aliens_check_hit((unsigned char)col, (unsigned char)row)) {
+                return 1; // Real hit confirmed
+            }
+        }
+
+        // Check for base blocks
+        if (bases_check_hit((unsigned char)col, (unsigned char)row)) {
+            return 1;
         }
     }
     return 0;
@@ -110,18 +127,17 @@ void missile_update(void) {
     // 3. ROBUST COLLISION DETECTION
     // We check the "Tip" and the "Body" to prevent tunneling through rows.
     
-    // The missile art is centered in the 24px sprite, so add 12 to find the visual center.
-    unsigned int visual_x = m->x + 12;
+    // The missile art's visible pixels are at offsets 11 and 12 within the sprite.
     unsigned int visual_y = m->y + 7;
 
     // Check Tip (Top pixel)
-    if (check_grid_hit(visual_x, visual_y)) {
+    if (check_grid_hit_from_sprite(m->x, visual_y)) {
         m->active = 0;
         return;
     }
 
     // Check Body (length of missle pixels down) to prevent tunnelling
-    if (check_grid_hit(visual_x, visual_y + 7)) {
+    if (check_grid_hit_from_sprite(m->x, visual_y + 7)) {
         m->active = 0;
         return;
     }

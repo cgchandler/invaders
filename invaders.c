@@ -10,6 +10,7 @@
 #include "sounds.h"
 #include "gameover.h"
 #include "bonus_ship.h"
+#include "bases.h"
 #include "bigfont.h"
 
 // Top-level game state is in `game.h` / `game.c` (see `game_get_state()`)
@@ -246,6 +247,7 @@ void game_over(void) {
     clear_playfield();
     aliens_reset();
     bonus_reset(); 
+    bases_init();
     // Return to intro screen
     g_mode = MODE_INTRO;
     intro_draw();
@@ -279,6 +281,7 @@ void game_init(void) {
     starfield_set_speed(2);          
     
     aliens_init();
+    bases_init();
     player_init();
     missile_init();
     bombs_init();
@@ -341,7 +344,7 @@ static void intro_draw(void) {
     vic.spr_expand_x |= (1 << BONUS_SPRITE_INDEX);
     vic.spr_expand_y &= ~(1 << BONUS_SPRITE_INDEX);
     // Position (Y will be aligned with bonus text row after we choose base_row)
-    vic.spr_pos[BONUS_SPRITE_INDEX].x = 136;  //120;
+    vic.spr_pos[BONUS_SPRITE_INDEX].x = 136; // center X (approx)
     vic.spr_msbx &= ~(1 << BONUS_SPRITE_INDEX);
     vic.spr_enable |= (1 << BONUS_SPRITE_INDEX);
 
@@ -502,6 +505,7 @@ static void game_update(void)
         clear_playfield();
 
         aliens_reset();
+        bases_init();
         missile_init();
         bombs_init();
         bonus_reset();
@@ -516,6 +520,7 @@ static void game_render(void)
     vic_waitFrame();
 
     starfield_render();
+    bases_render();
     aliens_render();
     player_render();
     missile_render();
