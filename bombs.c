@@ -97,8 +97,9 @@ void bombs_update(void) {
         }
 
         // B. Check Player Collision
-        // Player Y Hitbox (Approx 210-225)
-        if (b->y[i] > 210 && b->y[i] < 225) {
+        // Player Y Hitbox (Approx 216-231)
+        //if (b->y[i] > 216 && b->y[i] < 231) {
+        if (b->y[i] > 222 && b->y[i] < 231) {
             
             // Check X Overlap (Player width approx 24px)
             if (b->x[i] + 8 >= pstate->player_x && b->x[i] <= pstate->player_x + 20) {

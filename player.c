@@ -8,7 +8,7 @@
 #define PLAYER_IMAGE_IDX    (PLAYER_SPRITE_PTR + 0)
 
 // Top Border (50) + Row 22 (176) - Sprite Top Padding (6) = 220
-#define PLAYER_Y_POS        222
+#define PLAYER_Y_POS        228 // 220
 #define PLAYER_X_POS        172
 #define PLAYER_SPEED        2    
 #define MIN_X               24   
@@ -53,7 +53,7 @@ void player_die(void) {
     } else {
         // Soft Reset (Just reset positions)
         // Aliens hit the bottom, so they must reset to top
-        aliens_reset();
+        aliens_reset_postion(aliens_get_state());
         
         // Reset Player to Center
         player_reset_position(); 

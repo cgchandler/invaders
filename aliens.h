@@ -30,7 +30,6 @@ int aliens_check_hit(unsigned char col, unsigned char row);
 int aliens_cleared(void); // Returns 1 if count is 0
 void aliens_reset(void);  // Resets positions and brings aliens back to life
 
-
 /* Encapsulated aliens state */
 typedef struct {
 	unsigned char alive_count;
@@ -49,13 +48,12 @@ typedef struct {
 } aliens_state;
 
 /* Accessor for the state (pointer for pass-by-ref) */
-/* NOTE: legacy `g_*` aliases removed — use `aliens_get_state()` */
-
-/* Accessor for the state (pointer for pass-by-ref) */
 aliens_state* aliens_get_state(void);
 
 // Returns 1 if a shooter was found, populating x/y with pixel coordinates
 int aliens_get_random_shooter(int* out_x, int* out_y);
+
+void aliens_reset_postion(aliens_state* a); // Resets only position to starting point
 
 // Debug
 void aliens_debug_speed(void);
