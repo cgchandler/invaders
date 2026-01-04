@@ -387,10 +387,15 @@ int aliens_cleared(void) {
     return a->alive_count < 1;
 }
 
+void aliens_reset_postion(aliens_state* a) {
+    a->grid_x = START_COL; 
+    a->grid_y = START_ROW;    
+    a->render_dirty = 1;
+}
+
 void aliens_reset(void) {
     aliens_state* a = aliens_get_state();
-    a->grid_x = START_COL; 
-    a->grid_y = START_ROW;
+    aliens_reset_postion(a);
     
     a->timer      = 0;
     a->anim_frame = 0;
@@ -402,7 +407,6 @@ void aliens_reset(void) {
         aliens[i].state = STATE_ALIVE;
     }
     a->alive_count = TOTAL_ALIENS;
-    a->render_dirty = 1;
 }
 
 // Helper to find a random active alien for bomb dropping
