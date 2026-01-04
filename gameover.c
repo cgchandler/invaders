@@ -34,8 +34,8 @@ void game_over_sequence(void) {
     draw_big_text_at(X1, Y1, top, VCOL_WHITE, spacing);
     draw_big_text_at(X2, Y2, bot, VCOL_WHITE, spacing);
 
-    // 4. Wait 3 Seconds
-    wait_frames(180);
+    // Wait 3 Seconds
+    wait_frames(180);   // 180 frames at 60fps = 3 seconds
 
     // 5. Cleanup / Restart
     // Just return. The main loop should handle resetting variables 

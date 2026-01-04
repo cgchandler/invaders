@@ -222,8 +222,8 @@ static void intro_draw(void);
 static unsigned intro_bonus_timer = 0;
 static unsigned char intro_bonus_state = 0; /* 0 => 50, 1 => 300 */
 
-/* Position for bonus value on intro screen (derived from intro_draw layout)
-    base_row = 14, col = 15 -> bonus row = base_row - 2 = 12, col + 5 = 20 */
+/* Position for bonus value on intro screen (see intro_draw layout for details).
+The bonus value text is rendered at row 14, column 22. */
 static const unsigned char INTRO_BONUS_ROW = 14;
 static const unsigned char INTRO_BONUS_COL = 22;
 
@@ -366,7 +366,8 @@ static void intro_draw(void) {
 
     // Type 1 (20 pts) - chars 130,131 color YELLOW
     off = (base_row + 2) * 40 + col;
-    Screen[off] = 130; Screen[off + 1] = 131; 
+    Screen[off] = 130;
+    Screen[off + 1] = 131; 
     Color[off] = VCOL_YELLOW; 
     Color[off+1] = VCOL_YELLOW;
     draw_custom_text(base_row + 2, INTRO_BONUS_COL, "20", VCOL_YELLOW);
@@ -376,7 +377,7 @@ static void intro_draw(void) {
     Screen[off] = 128; 
     Screen[off + 1] = 129; 
     Color[off] = VCOL_GREEN; 
-    Color[off+1] = VCOL_GREEN;
+    Color[off + 1] = VCOL_GREEN;
     draw_custom_text(base_row + 4, INTRO_BONUS_COL, "10", VCOL_GREEN);
 
     // Bonus points value (alternate between 50 and 300)

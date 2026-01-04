@@ -3,7 +3,6 @@
 #include "config.h"
 
 // Config
-//#define BLOCK_CHAR 159
 #define SCREEN_W 40
 #define BIG_WIDTH 4     // Each big char is 4 columns wide
 #define BIG_HEIGHT 5    // Each big char is 5 rows tall
@@ -65,7 +64,7 @@ static const unsigned char BIG_FONT[][BIG_WIDTH * 5] = {
         CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
         CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_TL,
         CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BL,
-        CH_BLOCK,CH_SPACE,CH_TR,CH_BLOCK
+        CH_BLOCK,CH_SPACE,CH_TR,   CH_BLOCK
     },
     { // I
         CH_SPACE,CH_BLOCK,CH_BLOCK,CH_BLOCK,
@@ -74,7 +73,7 @@ static const unsigned char BIG_FONT[][BIG_WIDTH * 5] = {
         CH_SPACE,CH_SPACE,CH_BLOCK,CH_SPACE,
         CH_SPACE,CH_BLOCK,CH_BLOCK,CH_BLOCK
     },
-    { // N 
+    { // N
         CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
         CH_BLOCK,CH_BL,   CH_SPACE,CH_BLOCK,
         CH_BLOCK,CH_TR,   CH_BL,   CH_BLOCK,
