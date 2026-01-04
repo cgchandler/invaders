@@ -94,6 +94,83 @@ static const unsigned char BIG_FONT[][BIG_WIDTH * 5] = {
         CH_SPACE,CH_SPACE,CH_SPACE,CH_BLOCK,
         CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK
     }
+    ,{ // L
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_SPACE,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_SPACE,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_SPACE,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_SPACE,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK
+    }
+    ,{ // 0
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK
+    }
+    ,{ // 1
+        CH_SPACE,CH_BR,CH_BLOCK,CH_SPACE,
+        CH_SPACE,CH_BLOCK,CH_BLOCK,CH_SPACE,
+        CH_SPACE,CH_SPACE,CH_BLOCK,CH_SPACE,
+        CH_SPACE,CH_SPACE,CH_BLOCK,CH_SPACE,
+        CH_SPACE,CH_BLOCK,CH_BLOCK,CH_BLOCK
+    }
+    ,{ // 2
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_SPACE,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_SPACE,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK
+    }
+    ,{ // 3
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_SPACE,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_SPACE,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK
+    }
+    ,{ // 4
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_SPACE,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_SPACE,CH_SPACE,CH_SPACE,CH_BLOCK
+    }
+    ,{ // 5
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_SPACE,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_SPACE,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK
+    }
+    ,{ // 6
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_SPACE,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK
+    }
+    ,{ // 7
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_SPACE,CH_SPACE,CH_BR,   CH_BLOCK,
+        CH_SPACE,CH_BR,   CH_BLOCK,CH_TL,
+        CH_SPACE,CH_BLOCK,CH_TL,CH_SPACE ,
+        CH_SPACE,CH_BLOCK,CH_SPACE,CH_SPACE
+    }
+    ,{ // 8
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK
+    }
+    ,{ // 9
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_BLOCK,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK,
+        CH_SPACE,CH_SPACE,CH_SPACE,CH_BLOCK,
+        CH_BLOCK,CH_BLOCK,CH_BLOCK,CH_BLOCK
+    }
 };
 
 // Map ASCII uppercase letter to index in BIG_FONT. Returns -1 if not found.
@@ -110,6 +187,17 @@ static int char_to_index(char ch) {
         case 'N': return 8;
         case 'D': return 9;
         case 'S': return 10;
+        case 'L': return 11;
+        case '0': return 12;
+        case '1': return 13;
+        case '2': return 14;
+        case '3': return 15;
+        case '4': return 16;
+        case '5': return 17;
+        case '6': return 18;
+        case '7': return 19;
+        case '8': return 20;
+        case '9': return 21;
         default: return -1;
     }
 }
