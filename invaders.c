@@ -10,6 +10,7 @@
 #include "sounds.h"
 #include "gameover.h"
 #include "bonus_ship.h"
+#include "bigfont.h"
 
 // Top-level game state is in `game.h` / `game.c` (see `game_get_state()`)
 
@@ -212,6 +213,20 @@ void clear_playfield(void) {
     }
 }
 
+// --- INTRO SCREEN MODE (forward declarations) ---
+typedef enum { MODE_INTRO = 0, MODE_PLAY = 1 } game_mode_t;
+static game_mode_t g_mode; // defined/initialized later in file
+static void intro_draw(void);
+// Intro bonus toggle state: alternate between 50 and 300 every N frames
+#define INTRO_TOGGLE_FRAMES 180 /* ~3 seconds at 60Hz */
+static unsigned intro_bonus_timer = 0;
+static unsigned char intro_bonus_state = 0; /* 0 => 50, 1 => 300 */
+
+/* Position for bonus value on intro screen (derived from intro_draw layout)
+    base_row = 14, col = 15 -> bonus row = base_row - 2 = 12, col + 5 = 20 */
+static const unsigned char INTRO_BONUS_ROW = 14;
+static const unsigned char INTRO_BONUS_COL = 22;
+
 void game_over(void) {
     game_over_sequence();
 
@@ -231,7 +246,9 @@ void game_over(void) {
     clear_playfield();
     aliens_reset();
     bonus_reset(); 
-    
+    // Return to intro screen
+    g_mode = MODE_INTRO;
+    intro_draw();
 }
 
 void game_init(void) {
@@ -268,6 +285,136 @@ void game_init(void) {
     bonus_init(); 
 }
 
+// --- INTRO SCREEN ---
+// Local game mode for intro vs play (defined above)
+
+// Direct Hardware Scan for Spacebar (same matrix as missile.c)
+static int is_space_pressed_local(void) {
+    *(volatile byte*)0xDC00 = 0x7F; 
+    return ((*(volatile byte*)0xDC01) & 0x10) == 0;
+}
+
+// Helper: draw text using custom font where 'A' == 1
+static void draw_custom_text(unsigned char row, unsigned char col, const char* text, byte color) {
+    unsigned short offset = (row * 40) + col;
+    for (unsigned i = 0; text[i]; i++) {
+        char c = text[i];
+        if (c >= 'A' && c <= 'Z') {
+            Screen[offset + i] = (unsigned char)(c - 'A' + 1);
+        } else if (c == ' ') {
+            Screen[offset + i] = 32;
+        } else {
+            Screen[offset + i] = (unsigned char)c;
+        }
+        Color[offset + i] = color;
+    }
+}
+
+static void intro_draw(void) {
+    // Ensure row 0 score/title is up-to-date
+    update_score_display();
+
+    // Clear playfield area (rows 1..22)
+    for (int r = 1; r < 23; r++) {
+        unsigned short off = r * 40;
+        for (int c = 0; c < 40; c++) {
+            Screen[off + c] = ' ';
+            Color[off + c] = VCOL_WHITE;
+        }
+    }
+
+    // Large block-letter title (4x5) - draw "INVADERS" with 1-column spacing and centered
+    // Each letter is 4 cols wide; with spacing=1 total width = 8*4 + 7*1 = 39 -> start X = (40-39)/2 = 0
+    draw_big_text_at(0, 3, "INVADERS", VCOL_YELLOW, 1);
+
+    // Author name - row 8
+    draw_custom_text(10, 13, "COPYRIGHT 2026", VCOL_CYAN);
+    draw_custom_text(12, 13, "CHRIS CHANDLER", VCOL_CYAN);
+
+    // Bonus ship sprite: enable sprite 7, red, expanded X, positioned center
+    // Sprite pointer for bonus in sprites is BASE_SPRITE_PTR + BONUS_PTR_OFFSET (see bonus_ship.c)
+    // Using hardcoded value from module: BASE_SPRITE_PTR(32) + BONUS_PTR_OFFSET(2) = 34
+    byte* sprite_ptrs = (byte*)(Screen + 1016);
+    const int BONUS_SPRITE_INDEX = 7;
+    sprite_ptrs[BONUS_SPRITE_INDEX] = 34;
+    vic.spr_color[BONUS_SPRITE_INDEX] = VCOL_RED;
+    vic.spr_expand_x |= (1 << BONUS_SPRITE_INDEX);
+    vic.spr_expand_y &= ~(1 << BONUS_SPRITE_INDEX);
+    // Position (Y will be aligned with bonus text row after we choose base_row)
+    vic.spr_pos[BONUS_SPRITE_INDEX].x = 136;  //120;
+    vic.spr_msbx &= ~(1 << BONUS_SPRITE_INDEX);
+    vic.spr_enable |= (1 << BONUS_SPRITE_INDEX);
+
+    // Draw three alien types and their point values (30,20,10)
+    // Use the same graphic bytes as the aliens module (frame 0)
+    unsigned short base_row = 16;
+    unsigned short col = 16;
+
+     /* Now that we know where the bonus label will be drawn, align sprite Y
+         to the same text row so the ship appears level with the text. */
+     unsigned short bonus_text_row = base_row - 2;
+    // Text rows are 8 pixels high on the C64 text screen
+    vic.spr_pos[BONUS_SPRITE_INDEX].y = 50 + (bonus_text_row * 8);
+
+    // Type 0 (30 pts) - chars 132,133 color LT_RED
+    unsigned short off = base_row * 40 + col;
+    Screen[off] = 132; 
+    Screen[off + 1] = 133; 
+    Color[off] = VCOL_LT_RED; 
+    Color[off+1] = VCOL_LT_RED;
+    draw_custom_text(base_row, INTRO_BONUS_COL, "30", VCOL_LT_RED);
+
+    // Type 1 (20 pts) - chars 130,131 color YELLOW
+    off = (base_row + 2) * 40 + col;
+    Screen[off] = 130; Screen[off + 1] = 131; 
+    Color[off] = VCOL_YELLOW; 
+    Color[off+1] = VCOL_YELLOW;
+    draw_custom_text(base_row + 2, INTRO_BONUS_COL, "20", VCOL_YELLOW);
+
+    // Type 2 (10 pts) - chars 128,129 color GREEN
+    off = (base_row + 4) * 40 + col;
+    Screen[off] = 128; 
+    Screen[off + 1] = 129; 
+    Color[off] = VCOL_GREEN; 
+    Color[off+1] = VCOL_GREEN;
+    draw_custom_text(base_row + 4, INTRO_BONUS_COL, "10", VCOL_GREEN);
+
+    // Bonus points value (alternate between 50 and 300)
+    draw_custom_text(INTRO_BONUS_ROW, INTRO_BONUS_COL, intro_bonus_state ? "300" : "50 ", VCOL_RED);
+
+    // Draw the ground
+    draw_ground();
+}
+
+static void intro_update(void) {
+    // Keep starfield moving
+    starfield_update_motion();
+    // Update score row in case score/high score changed
+    update_score_display();
+    // Toggle bonus display every INTRO_TOGGLE_FRAMES frames
+    intro_bonus_timer++;
+    if (intro_bonus_timer >= INTRO_TOGGLE_FRAMES) {
+        intro_bonus_timer = 0;
+        intro_bonus_state = !intro_bonus_state;
+        // Redraw the small numeric label
+        draw_custom_text(INTRO_BONUS_ROW, INTRO_BONUS_COL, intro_bonus_state ? "300" : "50 ", VCOL_RED);
+    }
+}
+
+static void intro_render(void) {
+    // VBlank
+    vic_waitFrame();
+
+    // Render starfield
+    starfield_render();
+
+    // Hide the player sprite while on intro
+    vic.spr_enable &= ~1; // Sprite 0 off
+
+    // Render other static screen elements (aliens/bonus were written directly to Screen)
+    // Ensure bonus sprite is shown (already configured in intro_draw)
+}
+
 /* Forward declarations for loop-phase helpers */
 static void game_input(void);
 static void game_update(void);
@@ -277,11 +424,45 @@ int main(void)
 {
     game_init();
 
+    // Start in intro mode
+    g_mode = MODE_INTRO;
+
+    // Initial draw
+    intro_draw();
+
     for (;;)
     {
-        game_input();
-        game_update();
-        game_render();
+        if (g_mode == MODE_INTRO) {
+            // Poll input specifically for starting the game
+            if (is_space_pressed_local()) {
+                // cLear intro elements
+                screen_init();
+                update_lives_display();
+                update_level();                
+                // Disable intro-only sprites
+                vic.spr_expand_x &= ~(1 << 7);
+                vic.spr_enable &= ~(1 << 7);
+                // Re-enable player sprite now that play begins
+                vic.spr_enable |= 1;
+                // Enter play mode
+                g_mode = MODE_PLAY;
+            } else {
+                intro_update();
+                intro_render();
+            }
+        } else {
+            game_input();
+            game_update();
+            // If game_update() switched to intro (e.g. via game_over()),
+            // avoid rendering the gameplay frame which would draw aliens
+            // over the intro. Render according to the current mode.
+            if (g_mode == MODE_PLAY) {
+                game_render();
+            } else {
+                // We switched to intro mid-frame; render intro instead.
+                intro_render();
+            }
+        }
     }
 
     return 0;
