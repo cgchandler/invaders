@@ -28,14 +28,14 @@
  */
 
 /* Screen buffer base (text RAM at $4400 in VIC bank 1) */
-#define SCREEN_BASE 0x4400
+//#define SCREEN_BASE 0x4400
 
 /* Sprite and charset addresses (SPRITES_ADDR is the byte address used by memcpy)
  * Sprite pointer indexes (PLAYER_SPRITE_PTR, MISSILE_SPRITE_PTR) are the
  * values written into the screen pointer table (0..255). invaders.c uses 32
  * and 33 respectively.
  */
-#define SPRITES_ADDR 0x4800
+//#define SPRITES_ADDR 0x4800
 #define PLAYER_SPRITE_PTR 32
 #define MISSILE_SPRITE_PTR 33
 
@@ -50,9 +50,10 @@
 #include "game.h"
 
 /* Common screen/font pointers (defined in `invaders.c`) */
-extern byte* Screen;
+extern byte* const Screen;
 extern byte* const Font;
 extern byte* const Color;
+extern byte* const Sprites;
 
 /* Display helpers implemented in `invaders.c` */
 void update_score_display(void);

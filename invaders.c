@@ -12,6 +12,7 @@
 #include "bonus_ship.h"
 #include "bases.h"
 #include "bigfont.h"
+#include "leveldisplay.h"
 
 // Top-level game state is in `game.h` / `game.c` (see `game_get_state()`)
 
@@ -35,12 +36,14 @@ static const unsigned char all_sprites_data[] = {
 #endif
 };
 
-// Single Screen Buffer at $4400 (VIC Bank 1 offset $0400)
-byte* Screen = (byte*)0x4400;
-byte* const Font   = (byte*)0x5000;
-byte* const Color  = (byte*)0xD800;
+// --- GLOBAL SCREEN / FONT / SPRITE POINTERS ---
+byte* const Screen  = (byte*)0x6000;  // 1K aligned
+byte* const Sprites = (byte*)0x6400;  // reserve 1K for sprite shapes
+byte* const Font    = (byte*)0x6800;  // 2K aligned (2KB charset)
+byte* const Color   = (byte*)0xD800;   // Color RAM (not relocatable)
 
-#define D018_SCREEN_4400_CHAR_5000 0x14
+//#define D018_SCREEN_4400_CHAR_5000 0x14
+#define D018_SCREEN_6000_CHAR_6800 0x8A
 
 // --- SCREEN LAYOUT ---
 #define ROW_23_OFFSET   920  // (23 * 40) 
@@ -51,7 +54,7 @@ byte* const Color  = (byte*)0xD800;
 static void vic_set_bank_4000(void)
 {
     byte v = *(volatile byte*)0xDD00;
-    v = (v & 0xFC) | 0x02;   // bank = 2 -> $4000-$7FFF
+    v = (v & 0xFC) | 0x02;   // VIC bank base = $4000 (VIC sees $4000-$7FFF)
     *(volatile byte*)0xDD00 = v;
 }
 
@@ -189,13 +192,45 @@ static void update_level(void)
     Color[ROW_24_OFFSET + 1]  = VCOL_WHITE;
 }
 
+/*
 static void resources_init(void)
 {
     vic_set_bank_4000();
     memcpy(Font, charset, 2048);
     vic_setmode(VICM_TEXT, Screen, Font);
     *(volatile unsigned char*)0xD018 = D018_SCREEN_4400_CHAR_5000;
-    memcpy((void*)SPRITES_ADDR, all_sprites_data, sizeof(all_sprites_data));
+    //memcpy((void*)SPRITES_ADDR, all_sprites_data, sizeof(all_sprites_data));
+    memcpy(Sprites, all_sprites_data, sizeof(all_sprites_data));
+}
+*/
+static void resources_init(void)
+{
+    vic_set_bank_4000();
+
+    memcpy(Font, charset, 2048);
+
+    // If vic_setmode already programs D018, you can rely on it.
+    // If not, keep the explicit write below.
+    vic_setmode(VICM_TEXT, Screen, Font);
+
+    *(volatile unsigned char*)0xD018 = D018_SCREEN_6000_CHAR_6800;
+
+    memcpy(Sprites, all_sprites_data, sizeof(all_sprites_data));
+
+    // IMPORTANT: set sprite pointers (these live at Screen + 0x3F8)
+    // Pointers are (sprite_address - bank_base) / 64.
+    // Sprites at $6400 in bank $4000 => ($6400-$4000)/64 = $2400/64 = $90.
+    /*
+    volatile unsigned char* sprptr = (volatile unsigned char*)(0x6000 + 0x03F8);
+    sprptr[0] = 0x90; // sprite 0 at $6400
+    sprptr[1] = 0x91; // sprite 1 at $6440
+    sprptr[2] = 0x92; // ...
+    sprptr[3] = 0x93;
+    sprptr[4] = 0x94;
+    sprptr[5] = 0x95;
+    sprptr[6] = 0x96;
+    sprptr[7] = 0x97;
+    */
 }
 
 static void random_init(void)
@@ -215,8 +250,7 @@ void clear_playfield(void) {
 }
 
 // --- INTRO SCREEN MODE (forward declarations) ---
-typedef enum { MODE_INTRO = 0, MODE_PLAY = 1 } game_mode_t;
-static game_mode_t g_mode; // defined/initialized later in file
+//static game_mode_t g_mode; // defined/initialized later in file
 static void intro_draw(void);
 // Intro bonus toggle state: alternate between 50 and 300 every N frames
 #define INTRO_TOGGLE_FRAMES 180 /* ~3 seconds at 60Hz */
@@ -249,7 +283,7 @@ void game_over(void) {
     bonus_reset(); 
     bases_init();
     // Return to intro screen
-    g_mode = MODE_INTRO;
+    gs->mode = MODE_INTRO;
     intro_draw();
 }
 
@@ -336,10 +370,13 @@ static void intro_draw(void) {
 
     // Bonus ship sprite: enable sprite 7, red, expanded X, positioned center
     // Sprite pointer for bonus in sprites is BASE_SPRITE_PTR + BONUS_PTR_OFFSET (see bonus_ship.c)
-    // Using hardcoded value from module: BASE_SPRITE_PTR(32) + BONUS_PTR_OFFSET(2) = 34
     byte* sprite_ptrs = (byte*)(Screen + 1016);
     const int BONUS_SPRITE_INDEX = 7;
-    sprite_ptrs[BONUS_SPRITE_INDEX] = 34;
+    const byte VIC_BANK_BASE_PTR = (byte)(((unsigned)Sprites - 0x4000) >> 6); // /64
+    const byte BONUS_PTR_OFFSET  = 2; // same meaning as before
+    sprite_ptrs[BONUS_SPRITE_INDEX] = (byte)(VIC_BANK_BASE_PTR + BONUS_PTR_OFFSET);
+
+    // place and show sprite
     vic.spr_color[BONUS_SPRITE_INDEX] = VCOL_RED;
     vic.spr_expand_x |= (1 << BONUS_SPRITE_INDEX);
     vic.spr_expand_y &= ~(1 << BONUS_SPRITE_INDEX);
@@ -419,64 +456,6 @@ static void intro_render(void) {
     // Ensure bonus sprite is shown (already configured in intro_draw)
 }
 
-/* Forward declarations for loop-phase helpers */
-static void game_input(void);
-static void game_update(void);
-static void game_render(void);
-
-int main(void)
-{
-    game_init();
-
-    // Start in intro mode
-    g_mode = MODE_INTRO;
-
-    // Initial draw
-    intro_draw();
-
-    for (;;)
-    {
-        if (g_mode == MODE_INTRO) {
-            // Poll input specifically for starting the game
-            if (is_space_pressed_local()) {
-                // cLear intro elements
-                screen_init();
-                update_lives_display();
-                update_level();                
-                // Disable intro-only sprites
-                vic.spr_expand_x &= ~(1 << 7);
-                vic.spr_enable &= ~(1 << 7);
-                // Re-enable player sprite now that play begins
-                vic.spr_enable |= 1;
-                // Enter play mode
-                g_mode = MODE_PLAY;
-            } else {
-                intro_update();
-                intro_render();
-            }
-        } else {
-            game_input();
-            game_update();
-            // If game_update() switched to intro (e.g. via game_over()),
-            // avoid rendering the gameplay frame which would draw aliens
-            // over the intro. Render according to the current mode.
-            if (g_mode == MODE_PLAY) {
-                game_render();
-            } else {
-                // We switched to intro mid-frame; render intro instead.
-                intro_render();
-            }
-        }
-    }
-
-    return 0;
-}
-
-// Split main responsibilities to improve readability and testability.
-// - game_input(): handle input/polling only
-// - game_update(): game logic updates (non-VBlank)
-// - game_render(): VBlank wait + rendering routines
-
 static void game_input(void)
 {
     // Currently only player input is polled here. Move other input handling
@@ -511,6 +490,11 @@ static void game_update(void)
         bonus_reset();
 
         gs->shots_fired = 0;
+
+        // display the level number sequence if we're on the game play screen
+        if (gs->mode == MODE_PLAY) {
+            gs->mode = MODE_LEVEL_DISPLAY;
+        }
     }
 }
 
@@ -526,4 +510,112 @@ static void game_render(void)
     missile_render();
     bombs_render();
     bonus_render();
+
+}
+
+int main(void)
+{
+    game_init();
+
+    // Start in intro mode
+    game_state* gs = game_get_state();
+    gs->mode = MODE_INTRO;
+    // Initial draw
+    intro_draw();
+
+    for (;;)
+    {
+        /* Track previous mode to detect transitions — only run the
+         * level display when we just transitioned from PLAY to
+         * LEVEL_DISPLAY. This avoids accidental invocation while in
+         * other modes (e.g. INTRO).
+         */
+        game_mode_t prev_mode = gs->mode;
+
+// DEBUGGING CODE - DISPLAY MODE AT BOTTOM-MIDDLE OF SCREEN
+//int col = 18; /* bottom-middle area */
+//unsigned short off = ROW_24_OFFSET + col;
+//for (int i = 0; i < 7; i++) Color[off + i] = VCOL_WHITE;
+
+        if (gs->mode == MODE_INTRO) {
+            // Poll input specifically for starting the game
+            if (is_space_pressed_local()) {
+                // cLear intro elements
+                screen_init();
+                update_lives_display();
+                update_level();                
+                // Disable intro-only sprites
+                vic.spr_expand_x &= ~(1 << 7);
+                vic.spr_enable &= ~(1 << 7);
+                // Re-enable player sprite now that play begins
+                vic.spr_enable |= 1;
+                // Enter play mode
+                gs->mode = MODE_PLAY;
+//Screen[off + 0] = '1';
+            } else {
+                intro_update();
+                intro_render();
+                //Screen[off + 1] = '2';
+            }
+
+//Screen[off + 2] = '3';
+ 
+        } else {
+            game_input();
+            game_update();
+
+            /* Only perform the modal sequence when the mode changed from
+             * PLAY -> LEVEL_DISPLAY this frame. This prevents accidental
+             * modal runs when other code (or corruption) temporarily
+             * writes the mode while we're on the intro screen.
+             */
+            if (gs->mode == MODE_LEVEL_DISPLAY && prev_mode == MODE_PLAY) {
+                /* Snapshot sprite pointer table to detect accidental overwrites
+                 * during the modal sequence. The screen pointer table lives
+                 * at Screen+1016; save 8 entries used by sprites.
+                 */
+                byte* screen_ptr_area = (byte*)(Screen + 1016);
+                byte spr_before[8];
+                for (int i = 0; i < 8; i++) spr_before[i] = screen_ptr_area[i];
+
+                level_display_sequence();
+                gs->mode = MODE_PLAY;
+
+//Screen[off + 3] = '4';
+
+                /* If any sprite pointer changed, print a compact hex dump
+                 * at the bottom-middle for debugging on hardware/emulator.
+                 */
+                int changed = 0;
+                for (int i = 0; i < 8; i++) if (screen_ptr_area[i] != spr_before[i]) { changed = 1; break; }
+                if (changed) {
+                    unsigned short dbg_off = ROW_24_OFFSET + 12;
+                    Screen[dbg_off + 0] = 'S'; Screen[dbg_off + 1] = 'P'; Screen[dbg_off + 2] = ':';
+                    Color[dbg_off + 0] = Color[dbg_off + 1] = Color[dbg_off + 2] = VCOL_WHITE;
+                    int w = 3;
+                    for (int i = 0; i < 8; i++) {
+                        byte v = screen_ptr_area[i];
+                        unsigned char hi = (v >> 4) & 0xF;
+                        unsigned char lo = v & 0xF;
+                        Screen[dbg_off + w + (i*2) + 0] = (hi < 10) ? ('0' + hi) : ('A' + hi - 10);
+                        Screen[dbg_off + w + (i*2) + 1] = (lo < 10) ? ('0' + lo) : ('A' + lo - 10);
+                        Color[dbg_off + w + (i*2) + 0] = Color[dbg_off + w + (i*2) + 1] = VCOL_WHITE;
+                    }
+                }
+            }
+           
+            if (gs->mode == MODE_PLAY) {
+//Screen[off + 5] = '5';
+                game_render();
+            } else {
+                /* Any other non-play mode (including MODE_INTRO) should
+                 * draw the intro screen.
+                 */
+//Screen[off + 6] = '6';
+                intro_render();
+            }
+        }
+    }
+
+    return 0;
 }
