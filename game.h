@@ -18,7 +18,8 @@ typedef struct {
 
 extern game_state g_game_state;
 
-static inline game_state* game_get_state(void) { return &g_game_state; }
+/* Accessor implemented in game.c */
+game_state* game_get_state(void);
 
 /* NOTE: old `g_*` macro aliases removed — use `game_get_state()` */
 
