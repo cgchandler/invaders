@@ -532,11 +532,6 @@ int main(void)
          */
         game_mode_t prev_mode = gs->mode;
 
-// DEBUGGING CODE - DISPLAY MODE AT BOTTOM-MIDDLE OF SCREEN
-//int col = 18; /* bottom-middle area */
-//unsigned short off = ROW_24_OFFSET + col;
-//for (int i = 0; i < 7; i++) Color[off + i] = VCOL_WHITE;
-
         if (gs->mode == MODE_INTRO) {
             // Poll input specifically for starting the game
             if (is_space_pressed_local()) {
@@ -559,15 +554,12 @@ int main(void)
                 // Show level display immediately, then enter PLAY
                 level_display_sequence();
                 gs->mode = MODE_PLAY;
-//Screen[off + 0] = '1';
+
             } else {
                 intro_update();
                 intro_render();
-                //Screen[off + 1] = '2';
             }
 
-//Screen[off + 2] = '3';
- 
         } else {
             game_input();
             game_update();
@@ -577,7 +569,6 @@ int main(void)
              * modal runs when other code (or corruption) temporarily
              * writes the mode while we're on the intro screen.
              */
-            //if (gs->mode == MODE_LEVEL_DISPLAY && prev_mode == MODE_PLAY) {
             if (gs->mode == MODE_LEVEL_DISPLAY && (prev_mode == MODE_PLAY || prev_mode == MODE_INTRO)) {
                 /* Snapshot sprite pointer table to detect accidental overwrites
                  * during the modal sequence. The screen pointer table lives
@@ -590,24 +581,14 @@ int main(void)
                 level_display_sequence();
                 gs->mode = MODE_PLAY;
 
-//Screen[off + 3] = '4';
-
-                /* Restore sprite pointer table in case the level display
-                 * sequence overwrote any entries. This ensures the game
-                 * sprites continue to function properly after returning
-                 * from the modal sequence.
-                 */
-                //for (int i = 0; i < 8; i++) screen_ptr_area[i] = spr_before[i]; 
             }
            
             if (gs->mode == MODE_PLAY) {
-//Screen[off + 5] = '5';
                 game_render();
             } else {
                 /* Any other non-play mode (including MODE_INTRO) should
                  * draw the intro screen.
                  */
-//Screen[off + 6] = '6';
                 intro_render();
             }
         }

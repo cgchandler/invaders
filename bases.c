@@ -2,9 +2,9 @@
 #include <string.h>
 #include <c64/vic.h>
 
-/* Initial character layout for a single base (3x2)
-   Top row: 176,177,178
-   Bottom: 192,193,194
+/* Initial character layout for a single base (5x2)
+   Top row: 176,177,177,177,178
+   Bottom: 192,193,193,193,194
 */
 /* Repeat the middle (solid block) character so bases are 4 chars wide */
 static const unsigned char base_top_chars[BASE_WIDTH] = {176, 177, 177, 177, 178};

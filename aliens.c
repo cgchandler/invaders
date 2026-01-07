@@ -305,7 +305,7 @@ void aliens_update(void) {
                     }
                 }
             }
-            if (aliens[i].state == STATE_DEAD) break;
+            if (aliens[i].state == STATE_EXPLODING) break;
         }
     }
 
