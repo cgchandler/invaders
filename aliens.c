@@ -309,20 +309,22 @@ void aliens_update(void) {
         }
     }
 
-        for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
-            if (aliens[i].state != STATE_ALIVE) continue;
+    /* Check for alien collisions with player. If any alien overlaps the
+       player's character, the player dies. */
+    for (unsigned char i = 0; i < TOTAL_ALIENS; i++) {
+        if (aliens[i].state != STATE_ALIVE) continue;
 
-            int alien_y = a->grid_y + aliens[i].rel_y;
-            int alien_x = a->grid_x + aliens[i].rel_x; 
+        int alien_y = a->grid_y + aliens[i].rel_y;
+        int alien_x = a->grid_x + aliens[i].rel_x; 
 
-         if (alien_y >= PLAYER_HIT_ROW) {
-             int alien_right = alien_x + 1;
-             
-             if (alien_x <= p_col_end && alien_right >= p_col_start) {
-                 player_die();
-                 return;
-             }
-         }
+        if (alien_y >= PLAYER_HIT_ROW) {
+            int alien_right = alien_x + 1;
+            
+            if (alien_x <= p_col_end && alien_right >= p_col_start) {
+                player_die();
+                return;
+            }
+        }
     }
 }
 
@@ -464,27 +466,34 @@ void aliens_reset(void) {
 int aliens_get_random_shooter(int* out_x, int* out_y) {
     aliens_state* a = aliens_get_state();
     if (a->alive_count == 0) return 0;
-    
-    // Pick a random index from the survivors
-    int pick = rand() % a->alive_count;
-    int current = 0;
-    
+    // Efficient single-pass: determine bottom-most alive alien per column
+    // (columns are spaced by 3 pixels in rel_x: rel_x = col*3).
+    int bottom_idx[ALIENS_PER_ROW];
+    for (int c = 0; c < ALIENS_PER_ROW; c++) bottom_idx[c] = -1;
+
     for (int i = 0; i < TOTAL_ALIENS; i++) {
-        if (aliens[i].state == STATE_ALIVE) {
-            if (current == pick) {
-                // Found the chosen one! 
-                // Convert Grid Coordinates to Screen Pixels for the sprite.
-                // C64 Standard Screen Text Area starts at X=24, Y=50 (approx)
-                // We add +12 to X to center the bomb on the 2-char wide alien.
-                
-                *out_x = (a->grid_x + aliens[i].rel_x) * 8 + 24 + 4; 
-                *out_y = (a->grid_y + aliens[i].rel_y) * 8 + 50 + 16; 
-                return 1;
-            }
-            current++;
+        if (aliens[i].state != STATE_ALIVE) continue;
+        int col = aliens[i].rel_x / 3; // rel_x was initialized as c*3
+        if (col < 0 || col >= ALIENS_PER_ROW) continue; // safety
+        int prev = bottom_idx[col];
+        if (prev == -1 || aliens[i].rel_y > aliens[prev].rel_y) {
+            bottom_idx[col] = i;
         }
     }
-    return 0;
+
+    int shooters[ALIENS_PER_ROW];
+    int sc = 0;
+    for (int c = 0; c < ALIENS_PER_ROW; c++) {
+        if (bottom_idx[c] != -1) shooters[sc++] = bottom_idx[c];
+    }
+
+    if (sc == 0) return 0;
+    int pick = rand() % sc;
+    int idx = shooters[pick];
+
+    *out_x = (a->grid_x + aliens[idx].rel_x) * 8 + 24 - 4; 
+    *out_y = (a->grid_y + aliens[idx].rel_y) * 8 + 50;
+    return 1;
 }
 
 // ... end of aliens.c ...

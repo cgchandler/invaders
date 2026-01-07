@@ -46,23 +46,42 @@ void level_display_sequence(void) {
     int total_bot = len_bot * letter_w + (len_bot - 1) * spacing;
     int X2 = (40 - total_bot) / 2;
 
+    // Clamp X positions to valid text columns (0..39)
+    if (X1 < 0) X1 = 0;
+    if (X1 > 39) X1 = 39;
+    if (X2 < 0) X2 = 0;
+    if (X2 > 39) X2 = 39;
+
     // Save screen chars/colors for the 5 rows of the top big-text and
     // the 5 rows of the bottom big-text so we can restore them afterwards.
     unsigned char saved_chars[10][40];
     unsigned char saved_colors[10][40];
-    int rows[10];
-    for (int i = 0; i < 5; i++) rows[i] = Y1 + i;
-    for (int i = 0; i < 5; i++) rows[5 + i] = Y2 + i;
 
-    for (int i = 0; i < 10; i++) {
-        int r = rows[i];
+    // Save top block (Y1 .. Y1+4)
+    for (int i = 0; i < 5; i++) {
+        int r = Y1 + i;
         if (r < 0 || r >= 25) {
-            for (int c = 0; c < 40; c++) { saved_chars[i][c] = ' '; saved_colors[i][c] = VCOL_WHITE; }
+            for (int c = 0; c < 40; c++) { saved_chars[i][c] = (unsigned char)' '; saved_colors[i][c] = (unsigned char)VCOL_WHITE; }
         } else {
             int off = r * 40;
             for (int c = 0; c < 40; c++) {
                 saved_chars[i][c] = Screen[off + c];
                 saved_colors[i][c] = Color[off + c];
+            }
+        }
+    }
+
+    // Save bottom block (Y2 .. Y2+4)
+    for (int i = 0; i < 5; i++) {
+        int r = Y2 + i;
+        int idx = 5 + i;
+        if (r < 0 || r >= 25) {
+            for (int c = 0; c < 40; c++) { saved_chars[idx][c] = (unsigned char)' '; saved_colors[idx][c] = (unsigned char)VCOL_WHITE; }
+        } else {
+            int off = r * 40;
+            for (int c = 0; c < 40; c++) {
+                saved_chars[idx][c] = Screen[off + c];
+                saved_colors[idx][c] = Color[off + c];
             }
         }
     }
@@ -73,14 +92,26 @@ void level_display_sequence(void) {
     // Wait 2 Seconds (keep audio alive)
     wait_frames(120);   // 120 frames at 60fps = 2 seconds
 
-    // Restore saved screen chars/colors
-    for (int i = 0; i < 10; i++) {
-        int r = rows[i];
+    // Restore saved screen chars/colors (top block)
+    for (int i = 0; i < 5; i++) {
+        int r = Y1 + i;
         if (r < 0 || r >= 25) continue;
         int off = r * 40;
         for (int c = 0; c < 40; c++) {
             Screen[off + c] = saved_chars[i][c];
             Color[off + c] = saved_colors[i][c];
+        }
+    }
+
+    // Restore saved screen chars/colors (bottom block)
+    for (int i = 0; i < 5; i++) {
+        int r = Y2 + i;
+        int idx = 5 + i;
+        if (r < 0 || r >= 25) continue;
+        int off = r * 40;
+        for (int c = 0; c < 40; c++) {
+            Screen[off + c] = saved_chars[idx][c];
+            Color[off + c] = saved_colors[idx][c];
         }
     }
 
