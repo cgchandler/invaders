@@ -491,6 +491,7 @@ int aliens_get_random_shooter(int* out_x, int* out_y) {
     int pick = rand() % sc;
     int idx = shooters[pick];
 
+    // Center the bomb spawn coordinates under the alien
     *out_x = (a->grid_x + aliens[idx].rel_x) * 8 + 24 - 4; 
     *out_y = (a->grid_y + aliens[idx].rel_y) * 8 + 50;
     return 1;
