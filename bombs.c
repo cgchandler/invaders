@@ -13,8 +13,9 @@
 
 // Bomb Spawn Rate - inverse probability (or the "1-in-N chance") of a bomb spawning
 // N / NTSC 60 frames per second is the seconds estimation
+#define BOMB_SPAWN_RATE 50 // 2.0% chance or roughly every 0.8 seconds   
 //#define BOMB_SPAWN_RATE 100 // 1.0% chance or roughly every 1.6 seconds   
-#define BOMB_SPAWN_RATE 200 // 0.5% chance or roughly every 3.3 seconds   
+//#define BOMB_SPAWN_RATE 200 // 0.5% chance or roughly every 3.3 seconds   
 //#define BOMB_SPAWN_RATE 500 // 0.2% chance or roughly every 8.3 seconds   
 
 // Module-local storage moved into bombs_state

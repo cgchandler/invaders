@@ -540,16 +540,24 @@ int main(void)
         if (gs->mode == MODE_INTRO) {
             // Poll input specifically for starting the game
             if (is_space_pressed_local()) {
-                // cLear intro elements
+                // Clear intro elements and prepare playfield
                 screen_init();
                 update_lives_display();
-                update_level();                
-                // Disable intro-only sprites
+                update_level();
+
+                // Reinitialize sprite modules/pointers that were cleared by screen_init()
+                player_init();
+                missile_init();
+                bombs_init();
+                bonus_init();
+
+                // Disable intro-only sprites and ensure player sprite is on
                 vic.spr_expand_x &= ~(1 << 7);
                 vic.spr_enable &= ~(1 << 7);
-                // Re-enable player sprite now that play begins
                 vic.spr_enable |= 1;
-                // Enter play mode
+
+                // Show level display immediately, then enter PLAY
+                level_display_sequence();
                 gs->mode = MODE_PLAY;
 //Screen[off + 0] = '1';
             } else {
@@ -569,7 +577,8 @@ int main(void)
              * modal runs when other code (or corruption) temporarily
              * writes the mode while we're on the intro screen.
              */
-            if (gs->mode == MODE_LEVEL_DISPLAY && prev_mode == MODE_PLAY) {
+            //if (gs->mode == MODE_LEVEL_DISPLAY && prev_mode == MODE_PLAY) {
+            if (gs->mode == MODE_LEVEL_DISPLAY && (prev_mode == MODE_PLAY || prev_mode == MODE_INTRO)) {
                 /* Snapshot sprite pointer table to detect accidental overwrites
                  * during the modal sequence. The screen pointer table lives
                  * at Screen+1016; save 8 entries used by sprites.
@@ -583,25 +592,12 @@ int main(void)
 
 //Screen[off + 3] = '4';
 
-                /* If any sprite pointer changed, print a compact hex dump
-                 * at the bottom-middle for debugging on hardware/emulator.
+                /* Restore sprite pointer table in case the level display
+                 * sequence overwrote any entries. This ensures the game
+                 * sprites continue to function properly after returning
+                 * from the modal sequence.
                  */
-                int changed = 0;
-                for (int i = 0; i < 8; i++) if (screen_ptr_area[i] != spr_before[i]) { changed = 1; break; }
-                if (changed) {
-                    unsigned short dbg_off = ROW_24_OFFSET + 12;
-                    Screen[dbg_off + 0] = 'S'; Screen[dbg_off + 1] = 'P'; Screen[dbg_off + 2] = ':';
-                    Color[dbg_off + 0] = Color[dbg_off + 1] = Color[dbg_off + 2] = VCOL_WHITE;
-                    int w = 3;
-                    for (int i = 0; i < 8; i++) {
-                        byte v = screen_ptr_area[i];
-                        unsigned char hi = (v >> 4) & 0xF;
-                        unsigned char lo = v & 0xF;
-                        Screen[dbg_off + w + (i*2) + 0] = (hi < 10) ? ('0' + hi) : ('A' + hi - 10);
-                        Screen[dbg_off + w + (i*2) + 1] = (lo < 10) ? ('0' + lo) : ('A' + lo - 10);
-                        Color[dbg_off + w + (i*2) + 0] = Color[dbg_off + w + (i*2) + 1] = VCOL_WHITE;
-                    }
-                }
+                //for (int i = 0; i < 8; i++) screen_ptr_area[i] = spr_before[i]; 
             }
            
             if (gs->mode == MODE_PLAY) {
