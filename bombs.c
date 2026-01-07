@@ -7,9 +7,10 @@
 #include <stdlib.h> 
 
 // --- CONFIGURATION ---
-#define BOMB_SPEED      2    
-#define GROUND_Y        225  
-#define FIRST_SPRITE    2    
+#define BOMB_SPEED      2       // Pixels per frame        
+#define GROUND_Y        225     // Y position of ground (player row)
+#define FIRST_SPRITE    2       // First bomb uses Sprite 2 (Sprites 0 and 1 are Player and Missile)
+#define BOMB_COLOR      VCOL_YELLOW
 
 // Bomb Spawn Rate - inverse probability (or the "1-in-N chance") of a bomb spawning
 // N / NTSC 60 frames per second is the seconds estimation
@@ -45,7 +46,7 @@ void bombs_init(void) {
         Screen[1016 + FIRST_SPRITE + i] = bomb_ptr;
         
         // Set Color (Yellow)
-        vic.spr_color[FIRST_SPRITE + i] = VCOL_YELLOW;
+        vic.spr_color[FIRST_SPRITE + i] = BOMB_COLOR;
         
         // Disable initially
         vic.spr_enable   &= ~(1 << (FIRST_SPRITE + i));
@@ -63,6 +64,8 @@ void bombs_update(void) {
     player_state* pstate = player_get_state();
     bombs_state* b = _bstate();
     if ((rand() % BOMB_SPAWN_RATE) == 0) {
+
+        // There is a maximum number of bombs; find an inactive slot
         int slot = -1;
         for (int i = 0; i < MAX_BOMBS; i++) {
             if (!b->active[i]) {
@@ -72,6 +75,7 @@ void bombs_update(void) {
         }
         
         if (slot != -1) {
+            // Get random alien shooter position
             int start_x, start_y;
             if (aliens_get_random_shooter(&start_x, &start_y)) {
                 b->active[slot] = 1;
@@ -122,16 +126,22 @@ void bombs_update(void) {
 
         // B. Check Player Collision
         // Player Y Hitbox (Approx 216-231)
-        //if (b->y[i] > 216 && b->y[i] < 231) {
         if (b->y[i] > 222 && b->y[i] < 231) {
-            
-            // Check X Overlap (Player width approx 24px)
-            if (b->x[i] + 8 >= pstate->player_x && b->x[i] <= pstate->player_x + 20) {
-                
+
+            // Use the bomb sprite's visible pixel columns (offsets 11 and 12)
+            // to compute a tight X collision band, and compare against the
+            // player's pixel range (width ~24 pixels).
+            unsigned int bomb_px1 = b->x[i] + 11;
+            unsigned int bomb_px2 = b->x[i] + 12;
+
+            int player_left = (int)pstate->player_x;
+            int player_right = player_left + 23; // inclusive end (24 pixels)
+
+            // Collision if any visible bomb pixel intersects player range
+            if (!((int)bomb_px2 < player_left || (int)bomb_px1 > player_right)) {
                 // HIT!
                 b->active[i] = 0;
                 vic.spr_enable &= ~(1 << (FIRST_SPRITE + i));
-                
                 player_die();
             }
         }
