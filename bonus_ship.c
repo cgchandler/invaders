@@ -199,8 +199,6 @@ int bonus_check_hit(int m_col, int m_row)
 {
     // Match these to whatever missile.c uses for its pixel->grid conversion.
     // On a stock C64 text screen, top-left text cell begins at X=24, Y=50.
-    const int SCREEN_LEFT_EDGE = 24;
-    const int SCREEN_TOP_EDGE  = 50;
 
     // UFO sprite geometry (X-expanded)
     const int BONUS_SPRITE_WIDTH_PX = 48;

@@ -55,6 +55,10 @@ extern byte* const Font;
 extern byte* const Color;
 extern byte* const Sprites;
 
+// Screen Geometry for Collision
+#define SCREEN_LEFT_EDGE    24
+#define SCREEN_TOP_EDGE     50
+
 /* Display helpers implemented in `invaders.c` */
 void update_score_display(void);
 void update_lives_display(void);

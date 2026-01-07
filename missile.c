@@ -12,10 +12,6 @@
 #define MISSILE_SPEED       2   // Pixels per frame
 #define MISSILE_COLOR       VCOL_WHITE
 
-// Screen Geometry for Collision
-#define SCREEN_LEFT_EDGE    24
-#define SCREEN_TOP_EDGE     50
-
 // --- STATE ---
 static missile_state s_missile_state = { 0 };
 

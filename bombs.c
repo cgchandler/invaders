@@ -95,8 +95,6 @@ void bombs_update(void) {
            Use a point slightly below the sprite Y to detect earlier
            (prevents the bomb from overlapping the base char before collision). */
         {
-            const int SCREEN_LEFT_EDGE = 24;
-            const int SCREEN_TOP_EDGE = 50;
             if (b->x[i] >= SCREEN_LEFT_EDGE) {
                     unsigned int px1 = b->x[i] + 11;
                     unsigned int px2 = b->x[i] + 12;
