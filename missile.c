@@ -100,8 +100,10 @@ void missile_init(void) {
     m->active = 0;
     
     // Set pointer for Sprite 1 (Offset + 1 from Player)
-    byte* ptrs = (byte*)(0x4400 + 1016);
-    ptrs[1] = MISSILE_SPRITE_PTR;
+    // Pointer table lives at Screen + 0x3F8 (1016)
+    byte* ptrs = (byte*)(Screen + 1016);
+    const byte VIC_BANK_BASE_PTR = (byte)(((unsigned)Sprites - 0x4000) >> 6);
+    ptrs[1] = VIC_BANK_BASE_PTR + 1; // missile sprite is the 2nd slot in sprite data
 
     // Config Sprite 1
     vic.spr_enable   &= ~2;          // Disable initially (Bit 1 = 0)
