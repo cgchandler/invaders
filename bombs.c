@@ -2,6 +2,7 @@
 #include "aliens.h"
 #include "player.h" 
 #include "config.h"
+#include "bases.h"
 #include <c64/vic.h>
 #include <stdlib.h> 
 
@@ -12,8 +13,9 @@
 
 // Bomb Spawn Rate - inverse probability (or the "1-in-N chance") of a bomb spawning
 // N / NTSC 60 frames per second is the seconds estimation
+#define BOMB_SPAWN_RATE 50 // 2.0% chance or roughly every 0.8 seconds   
 //#define BOMB_SPAWN_RATE 100 // 1.0% chance or roughly every 1.6 seconds   
-#define BOMB_SPAWN_RATE 200 // 0.5% chance or roughly every 3.3 seconds   
+//#define BOMB_SPAWN_RATE 200 // 0.5% chance or roughly every 3.3 seconds   
 //#define BOMB_SPAWN_RATE 500 // 0.2% chance or roughly every 8.3 seconds   
 
 // Module-local storage moved into bombs_state
@@ -88,6 +90,28 @@ void bombs_update(void) {
 
         // Move Down
         b->y[i] += BOMB_SPEED;
+
+        /* Check collision with bases (grid conversion).
+           Use a point slightly below the sprite Y to detect earlier
+           (prevents the bomb from overlapping the base char before collision). */
+        {
+            if (b->x[i] >= SCREEN_LEFT_EDGE) {
+                    unsigned int px1 = b->x[i] + 11;
+                    unsigned int px2 = b->x[i] + 12;
+                    int check_pixel_y = b->y[i] + 8; /* sample a point ~mid/bottom of sprite */
+                    int row = (check_pixel_y - SCREEN_TOP_EDGE) / 8;
+                    int col1 = (int)(px1 - SCREEN_LEFT_EDGE) / 8;
+                    int col2 = (int)(px2 - SCREEN_LEFT_EDGE) / 8;
+                    if (row >= 0 && row < 25) {
+                        if ((col1 >= 0 && col1 < 40 && bases_check_hit((unsigned char)col1, (unsigned char)row)) ||
+                            (col2 >= 0 && col2 < 40 && bases_check_hit((unsigned char)col2, (unsigned char)row))) {
+                            b->active[i] = 0;
+                            vic.spr_enable &= ~(1 << (FIRST_SPRITE + i));
+                            continue;
+                        }
+                }
+            }
+        }
 
         // A. Check Ground Collision
         if (b->y[i] > GROUND_Y) {

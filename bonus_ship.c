@@ -173,13 +173,14 @@ void bonus_render(void) {
     vic.spr_expand_x |= (1 << BONUS_SPRITE_INDEX);
     vic.spr_expand_y &= ~(1 << BONUS_SPRITE_INDEX);
 
-    // Set Pointer
-    byte* sprite_ptrs = (byte*)(0x4400 + 0x3F8); 
-    
+    // Set Pointer: sprite pointer table lives at Screen + 0x3F8
+    byte* sprite_ptrs = (byte*)(Screen + 0x3F8);
+    const byte VIC_BANK_BASE_PTR = (byte)(((unsigned)Sprites - 0x4000) >> 6);
+
     if (b->state == STATE_MOVING) {
-        sprite_ptrs[BONUS_SPRITE_INDEX] = BASE_SPRITE_PTR + BONUS_PTR_OFFSET; 
+        sprite_ptrs[BONUS_SPRITE_INDEX] = VIC_BANK_BASE_PTR + BONUS_PTR_OFFSET; 
     } else {
-        sprite_ptrs[BONUS_SPRITE_INDEX] = BASE_SPRITE_PTR + EXPLOSION_PTR_OFFSET + b->anim_frame;
+        sprite_ptrs[BONUS_SPRITE_INDEX] = VIC_BANK_BASE_PTR + EXPLOSION_PTR_OFFSET + b->anim_frame;
     }
 
     vic.spr_pos[BONUS_SPRITE_INDEX].y = BONUS_Y_POS;
@@ -198,8 +199,6 @@ int bonus_check_hit(int m_col, int m_row)
 {
     // Match these to whatever missile.c uses for its pixel->grid conversion.
     // On a stock C64 text screen, top-left text cell begins at X=24, Y=50.
-    const int SCREEN_LEFT_EDGE = 24;
-    const int SCREEN_TOP_EDGE  = 50;
 
     // UFO sprite geometry (X-expanded)
     const int BONUS_SPRITE_WIDTH_PX = 48;

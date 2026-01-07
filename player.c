@@ -71,10 +71,10 @@ void player_reset_position(void) {
 
 // --- PLAYER MOVEMENT ---
 void player_init(void) {
-    // Set Sprite Pointer
-    //byte* screen_ptr_area = (byte*)(0x4400 + 1016);
+    // Set Sprite Pointer (use runtime bank base computed from `Sprites`)
     byte* screen_ptr_area = (byte*)(Screen + 1016);
-    screen_ptr_area[0] = PLAYER_IMAGE_IDX; 
+    const byte VIC_BANK_BASE_PTR = (byte)(((unsigned)Sprites - 0x4000) >> 6);
+    screen_ptr_area[0] = VIC_BANK_BASE_PTR + 0; // player image offset 0
 
     // Configure VIC-II Sprite 0
     vic.spr_enable   |= 1;           // Enable Sprite 0

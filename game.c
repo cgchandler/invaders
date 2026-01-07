@@ -11,6 +11,7 @@ game_state g_game_state = {
     .next_life_score = 1500,
     .level = 1,
     .max_lives = 18,
+    .mode = MODE_INTRO
 };
 
 game_state* game_get_state(void) {
