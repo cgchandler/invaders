@@ -302,7 +302,6 @@ void aliens_update(void) {
                         sfx_alien_hit();
                         a->alive_count--;
                         a->render_dirty = 1;
-                        //gs->score += aliens[i].score_value;
                         update_score_display();
                         break; /* stop checking columns for this alien */
                     }
