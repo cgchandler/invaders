@@ -1,7 +1,7 @@
 #include "player.h"
 #include <c64/vic.h>
 #include <c64/types.h>
-#include <c64/keyboard.h>
+#include "player_input.h"
 
 // --- CONFIGURATION ---
 // Sprite pointer base is centralized in config.h as PLAYER_SPRITE_PTR
@@ -99,35 +99,25 @@ player_state* player_get_state(void) {
 }
 
 void player_update(void) {
-    keyb_poll();
 
-    // Check if ANY Shift key is held
-    // Note: KSCAN_SHIFT_LOCK in this enum corresponds to the Left Shift matrix line
-    int is_shifted = key_pressed(KSCAN_SHIFT_LOCK) || key_pressed(KSCAN_RSHIFT);
+    player_input_t input;
+    player_input_update(&input);
 
-    // Handle LEFT Movement
-    // triggers on: 'A' OR 'Physical Left Arrow (Top-Left)' OR 'Shift + Cursor Key'
-    if (key_pressed(KSCAN_A) || 
-        key_pressed(KSCAN_ARROW_LEFT) || 
-        (key_pressed(KSCAN_CSR_RIGHT) && is_shifted)) 
+    if (input.left) 
     {
         player_state* p = _pstate();
         if (p->player_x > MIN_X) {
                 p->player_x -= PLAYER_SPEED;
             }
     }
-
-    // Handle RIGHT Movement
-    // triggers on: 'D' OR 'Cursor Key (without Shift)'
-    // We use 'else if' to prevent moving both ways if keys are mashed
-    else if (key_pressed(KSCAN_D) || 
-            (key_pressed(KSCAN_CSR_RIGHT) && !is_shifted)) 
+    else if (input.right)
     {
         player_state* p = _pstate();
         if (p->player_x < MAX_X) {
             p->player_x += PLAYER_SPEED;
         }
     }
+
 }
 
 void player_render(void) {
