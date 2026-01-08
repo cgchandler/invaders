@@ -27,6 +27,9 @@ void player_die(void) {
     // Decrement Lives
     if (p->lives > 0) p->lives--;
 
+    bombs_init();       // Clear any active bombs
+    missile_init();     // Clear any active missiles
+
     update_lives_display();
     
     if (p->lives > 0) {
@@ -90,8 +93,9 @@ void player_init(void) {
     vic.spr_msbx     &= ~1;
 
     // Init State
-    player_state* p = _pstate();
-    p->player_x = 172; 
+    player_reset_position();
+    player_render();
+
 }
 
 player_state* player_get_state(void) {

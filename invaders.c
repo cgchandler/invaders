@@ -499,6 +499,12 @@ static void game_update(void)
         bombs_init();
         bonus_reset();
 
+        // Reset Player Position
+        player_init();
+
+        // Redraw the ground which may have been partially erased by aliens
+        draw_ground();        
+
         gs->shots_fired = 0;
 
         // display the level number sequence if we're on the game play screen

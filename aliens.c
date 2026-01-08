@@ -56,6 +56,7 @@ struct Alien {
     unsigned char rel_x;
     unsigned char rel_y;
     unsigned char color;
+    unsigned char score_value;
     unsigned char anim_timer; // Counts the frames between graphic changes
     unsigned char anim_stage; // Tracks which of the 4 explosion sizes to draw (0-3)
 };
@@ -79,6 +80,10 @@ void aliens_init(void) {
         VCOL_LT_RED, VCOL_YELLOW, VCOL_GREEN, VCOL_PURPLE, VCOL_CYAN
     };
 
+    static const unsigned char TYPE_SCORES[3] = {
+        30, 20, 10
+    };
+
     unsigned char i = 0;
     
     for (unsigned char r = 0; r < NUM_ROWS; r++) {
@@ -97,7 +102,7 @@ void aliens_init(void) {
             aliens[i].rel_y = r * 2; 
             aliens[i].rel_x = c * 3; 
             aliens[i].color = row_color;
-            
+            aliens[i].score_value = TYPE_SCORES[type];
             a->alive_count++;
             i++;
         }
@@ -193,7 +198,7 @@ void aliens_update(void) {
     
     int calc_speed = safe_count + 1 - level_bonus;
     if (calc_speed < 2) calc_speed = 2;
-    
+
     // STORE IT so we can debug it without recalculating
     a->current_delay = (unsigned char)calc_speed; 
     a->timer = a->current_delay;
@@ -275,7 +280,7 @@ void aliens_update(void) {
                 for (int cx = 0; cx <= 1; cx++) {
                     int col = alien_x + cx;
                     if (col < 0 || col >= 40) continue;
-                    if (bases_check_hit((unsigned char)col, (unsigned char)check_row)) {
+                    if (bases_check_hit((unsigned char)col, (unsigned char)check_row, true)) {
                         /* Start explosion animation (same as missile hit) */
                         unsigned short r = a->grid_y + aliens[i].rel_y;
                         unsigned short offset = (r * 40) + a->grid_x + aliens[i].rel_x;
@@ -297,9 +302,7 @@ void aliens_update(void) {
                         sfx_alien_hit();
                         a->alive_count--;
                         a->render_dirty = 1;
-                        if (aliens[i].type == 0)      gs->score += 30;
-                        else if (aliens[i].type == 1) gs->score += 20;
-                        else                            gs->score += 10;
+                        //gs->score += aliens[i].score_value;
                         update_score_display();
                         break; /* stop checking columns for this alien */
                     }
@@ -422,10 +425,7 @@ int aliens_check_hit(unsigned char col, unsigned char row) {
                 sfx_alien_hit();
                 a->alive_count--;
                 a->render_dirty = 1;
-
-                if (aliens[i].type == 0)      gs->score += 30;
-                else if (aliens[i].type == 1) gs->score += 20;
-                else                            gs->score += 10;
+                gs->score += aliens[i].score_value;
 
                 update_score_display();
                 return 1; 
