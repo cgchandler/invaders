@@ -1,5 +1,6 @@
 #include <c64/vic.h>
 #include <c64/types.h>
+#include "player_input.h"
 #include <stdlib.h>
 #include <string.h>
 #include "starfield.h"
@@ -13,6 +14,9 @@
 #include "bases.h"
 #include "bigfont.h"
 #include "leveldisplay.h"
+#include "player_input.h"
+#include <c64/joystick.h>
+#include <c64/keyboard.h>
 
 // Top-level game state is in `game.h` / `game.c` (see `game_get_state()`)
 
@@ -325,7 +329,13 @@ void game_init(void) {
 // --- INTRO SCREEN ---
 // Local game mode for intro vs play (defined above)
 
-// Direct Hardware Scan for Spacebar (same matrix as missile.c)
+// CHeck for Joystick button
+static int is_fire_pressed_local(void) {
+    joy_poll(JOYSTICK_2);                // poll joystick port 2
+    return joyb[JOYSTICK_2];             // joystick 2 button pressed
+}
+
+// Direct Hardware Scan for Spacebar
 static int is_space_pressed_local(void) {
     *(volatile byte*)0xDC00 = 0x7F; 
     return ((*(volatile byte*)0xDC01) & 0x10) == 0;
@@ -511,6 +521,10 @@ static void game_render(void)
     bombs_render();
     bonus_render();
 
+    // output control method to screen for debugging on row 24, col 20
+    game_state* gs = game_get_state();
+    draw_custom_text(24, 20, (gs->control == JOYSTICK) ? "JOY" : "KEY", VCOL_WHITE);
+
 }
 
 int main(void)
@@ -533,8 +547,19 @@ int main(void)
         game_mode_t prev_mode = gs->mode;
 
         if (gs->mode == MODE_INTRO) {
-            // Poll input specifically for starting the game
-            if (is_space_pressed_local()) {
+            //player_input_t input;
+            //player_input_update(&input);
+            //if (input.fire) {
+            int fire_pressed = is_fire_pressed_local();
+            int space_pressed = 0;
+            if (!fire_pressed) {
+                space_pressed = is_space_pressed_local();
+            }
+            if (fire_pressed || space_pressed) {
+
+                // Set control method based on input used to start game
+                gs->control = (fire_pressed) ? JOYSTICK : KEYBOARD;
+
                 // Clear intro elements and prepare playfield
                 screen_init();
                 update_lives_display();

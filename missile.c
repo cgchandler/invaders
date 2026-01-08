@@ -4,6 +4,7 @@
 #include "player.h"  // To get player position
 #include <c64/vic.h>
 #include <c64/types.h>
+#include "player_input.h"
 
 #include "config.h"
 #include "bases.h"
@@ -23,14 +24,18 @@ static inline missile_state* _mstate(void) { return &s_missile_state; }
 
 // Direct Hardware Scan for Spacebar
 // Row 7 (0x7F), Bit 4 (0x10)
+/*
 static int is_space_pressed(void) {
+    // Poll joystick port 2 
+    player_input_t input;
+    player_input_update(&input);
+    if (input.fire) return 1;            // joystick 2 button pressed
+
+    // Fallback to keyboard matrix check (spacebar)
     *(volatile byte*)0xDC00 = 0x7F; 
     return ((*(volatile byte*)0xDC01) & 0x10) == 0;
 }
-
-/* Track previous space state to detect a single keypress (rising edge).
-   0 = not pressed last frame, 1 = pressed last frame */
-static unsigned char space_prev = 0;
+*/
 
 // Helper to check a sprite's visible pixels (two columns at offsets 11 and 12)
 // against the text grid. `sprite_x` is the sprite's hardware X (left) coordinate.
@@ -110,12 +115,13 @@ void missile_init(void) {
 }
 
 void missile_update(void) {
-    // 1. FIRE LOGIC
+    // FIRE LOGIC
     player_state* pstate = player_get_state();
     missile_state* m = _mstate();
     if (!m->active) {
-        unsigned char curr_space = is_space_pressed() ? 1 : 0;
-        if (curr_space && !space_prev) {
+        player_input_t input;
+        player_input_update(&input);
+        if (input.fire) {
             m->active = 1;
             sfx_fire_missile();
             // Launch Alignment:
@@ -125,12 +131,10 @@ void missile_update(void) {
             m->x = pstate->player_x - 1;
             m->y = 211;
         }
-        /* Update previous state so subsequent frames require key release */
-        space_prev = curr_space;
         return;
     }
 
-    // 2. MOVEMENT
+    // MOVEMENT
     if (m->y > MISSILE_SPEED + 40) { 
         m->y -= MISSILE_SPEED;
     } else {
@@ -138,7 +142,7 @@ void missile_update(void) {
         return;
     }
 
-    // 3. ROBUST COLLISION DETECTION
+    // ROBUST COLLISION DETECTION
     // We check the "Tip" and the "Body" to prevent tunneling through rows.
     
     // The missile art's visible pixels are at offsets 11 and 12 within the sprite.

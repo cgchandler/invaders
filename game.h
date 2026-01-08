@@ -15,6 +15,12 @@ typedef enum {
     MODE_LEVEL_DISPLAY = 3
 } game_mode_t;
 
+typedef enum {
+    JOYSTICK = 0,
+    KEYBOARD = 1
+} game_control_t;
+
+/* Top-level mutable game state structure */
 typedef struct {
     unsigned int score;
     unsigned int high_score;
@@ -23,13 +29,12 @@ typedef struct {
     unsigned char level;
     unsigned char max_lives;
     game_mode_t mode;       // Current game mode
+    game_control_t control; // Input method
 } game_state;
 
 extern game_state g_game_state;
 
 /* Accessor implemented in game.c */
 game_state* game_get_state(void);
-
-/* NOTE: old `g_*` macro aliases removed — use `game_get_state()` */
 
 #endif /* GAME_H */
