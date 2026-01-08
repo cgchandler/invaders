@@ -22,24 +22,9 @@ static inline missile_state* _mstate(void) { return &s_missile_state; }
 
 // --- HELPERS ---
 
-// Direct Hardware Scan for Spacebar
-// Row 7 (0x7F), Bit 4 (0x10)
-/*
-static int is_space_pressed(void) {
-    // Poll joystick port 2 
-    player_input_t input;
-    player_input_update(&input);
-    if (input.fire) return 1;            // joystick 2 button pressed
-
-    // Fallback to keyboard matrix check (spacebar)
-    *(volatile byte*)0xDC00 = 0x7F; 
-    return ((*(volatile byte*)0xDC01) & 0x10) == 0;
-}
-*/
-
 /* Track previous fire state to detect a single key or fire button press.
    false = not pressed last frame, true = pressed last frame */
-static bool prev_fire = 0;
+static bool prev_fire = false;
 
 // Helper to check a sprite's visible pixels (two columns at offsets 11 and 12)
 // against the text grid. `sprite_x` is the sprite's hardware X (left) coordinate.

@@ -7,8 +7,6 @@
 // state. This prevents accidental corruption of CIA registers which can
 // destabilize the system and drop back to BASIC.
 
-static unsigned char fire_was_down = 0;
-
 void player_input_update(player_input_t* in)
 {
 

@@ -14,7 +14,6 @@
 #include "bases.h"
 #include "bigfont.h"
 #include "leveldisplay.h"
-#include "player_input.h"
 #include <c64/joystick.h>
 #include <c64/keyboard.h>
 
@@ -547,9 +546,6 @@ int main(void)
         game_mode_t prev_mode = gs->mode;
 
         if (gs->mode == MODE_INTRO) {
-            //player_input_t input;
-            //player_input_update(&input);
-            //if (input.fire) {
             int fire_pressed = is_fire_pressed_local();
             int space_pressed = 0;
             if (!fire_pressed) {
