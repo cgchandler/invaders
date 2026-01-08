@@ -328,7 +328,7 @@ void game_init(void) {
 // --- INTRO SCREEN ---
 // Local game mode for intro vs play (defined above)
 
-// CHeck for Joystick button
+// Check for Joystick button
 static int is_fire_pressed_local(void) {
     joy_poll(JOYSTICK_2);                // poll joystick port 2
     return joyb[JOYSTICK_2];             // joystick 2 button pressed
@@ -469,6 +469,7 @@ static void game_input(void)
 {
     // Currently only player input is polled here. Move other input handling
     // here if needed in the future.
+    player_input_poll();
     player_update();
 }
 

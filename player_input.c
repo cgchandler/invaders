@@ -7,6 +7,21 @@
 // state. This prevents accidental corruption of CIA registers which can
 // destabilize the system and drop back to BASIC.
 
+// Poll the current input method (joystick or keyboard) based on game state
+// This should be called once per frame before calling player_input_update()
+void player_input_poll(void)
+{
+    game_state* gs = game_get_state();
+    if (gs->control == JOYSTICK) {
+        // poll the joystick state
+        joy_poll(JOYSTICK_2);
+    }
+    else {
+        // poll the keyboard state
+        keyb_poll();
+    }
+}
+
 void player_input_update(player_input_t* in)
 {
 
@@ -16,16 +31,12 @@ void player_input_update(player_input_t* in)
 
     game_state* gs = game_get_state();
     if (gs->control == JOYSTICK) {
-        // poll the joystick state
-        joy_poll(JOYSTICK_2);
         // Determine left/right/fire from joystick
         left  = (joyx[JOYSTICK_2] < 0);
         right = (joyx[JOYSTICK_2] > 0);
         fire = joyb[JOYSTICK_2];
     }
     else {
-        // poll the keyboard state
-        keyb_poll();
         // Check for shifted keys
         int is_shifted = key_pressed(KSCAN_SHIFT_LOCK) || key_pressed(KSCAN_RSHIFT);
         // Determine left/right/fire from keys

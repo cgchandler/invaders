@@ -12,6 +12,7 @@ typedef struct {
     bool fire;   // one-shot (edge detected)
 } player_input_t;
 
+void player_input_poll(void);
 void player_input_update(player_input_t* in);
 
 #endif
