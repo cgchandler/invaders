@@ -37,6 +37,10 @@ static int is_space_pressed(void) {
 }
 */
 
+/* Track previous fire state to detect a single key or fire button press.
+   false = not pressed last frame, true = pressed last frame */
+static bool prev_fire = 0;
+
 // Helper to check a sprite's visible pixels (two columns at offsets 11 and 12)
 // against the text grid. `sprite_x` is the sprite's hardware X (left) coordinate.
 // Returns 1 if hit, 0 if miss.
@@ -121,7 +125,7 @@ void missile_update(void) {
     if (!m->active) {
         player_input_t input;
         player_input_update(&input);
-        if (input.fire) {
+        if (input.fire && !prev_fire) {
             m->active = 1;
             sfx_fire_missile();
             // Launch Alignment:
@@ -131,6 +135,8 @@ void missile_update(void) {
             m->x = pstate->player_x - 1;
             m->y = 211;
         }
+        /* Update previous state so subsequent frames require key release */
+        prev_fire = input.fire;        
         return;
     }
 

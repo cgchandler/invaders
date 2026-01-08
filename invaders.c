@@ -521,9 +521,9 @@ static void game_render(void)
     bombs_render();
     bonus_render();
 
-    // output control method to screen for debugging on row 24, col 20
+    // output control method to screen for debugging
     game_state* gs = game_get_state();
-    draw_custom_text(24, 20, (gs->control == JOYSTICK) ? "JOY" : "KEY", VCOL_WHITE);
+    draw_custom_text(24, 36, (gs->control == JOYSTICK) ? "J" : "K", VCOL_WHITE);
 
 }
 
