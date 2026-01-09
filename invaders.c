@@ -585,7 +585,6 @@ int main(void)
 
                 // Full game reset so a play started after demo begins fresh
                 gs->score = 0;
-                gs->high_score = gs->high_score; /* preserve high score */
                 gs->next_life_score = 1500;
                 gs->shots_fired = 0;
                 gs->level = 1;
@@ -644,8 +643,7 @@ int main(void)
                     vic.spr_enable &= ~(1 << 7);
                     vic.spr_enable |= 1;
 
-                    // Show level then begin demo play
-                    //level_display_sequence();
+                    // Begin demo play
                     gs->mode = MODE_DEMO;
                     gs->demo = 1;
                     demo_timer = 0;

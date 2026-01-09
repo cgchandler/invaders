@@ -44,7 +44,7 @@ static const unsigned char ALIEN_CHARS[3][2][2] = {
 
 // non-linear speed table based on number of alive aliens
 // quadratic ease-in curve formula: speed = 2 + ( (n * n) * 28 ) / (55 * 55);
-static const unsigned char SPEED_TABLE[57] = {
+static const unsigned char SPEED_TABLE[55] = {
     2, 2, 2, 2, 2, 
     2, 2, 2, 2, 2,
     4, 4, 4, 4, 4, 
@@ -190,8 +190,12 @@ void aliens_update(void) {
 
     // Calculate speed based on level and number of alive aliens
     game_state* gs = game_get_state();
-    int speed_index = a->alive_count - gs->level;
-    if (speed_index < 0) speed_index = 0;
+    int speed_index = a->alive_count - 1 - gs->level;
+    if (speed_index < 0) {
+        speed_index = 0;
+    } else if (speed_index > 54) {
+        speed_index = 54;
+    }
     int calc_speed = SPEED_TABLE[speed_index];
 
     /* REPLACED IN FAVOR OF CALCULATION BASED ON LEVEL

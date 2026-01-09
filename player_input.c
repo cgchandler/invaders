@@ -38,7 +38,6 @@ void player_input_update(player_input_t* in)
          * and move toward it — this avoids getting stuck bouncing between two
          * fixed points.
          */
-        static int demo_dir = 1; /* 1 = right, -1 = left */
         static unsigned demo_move_timer = 0;
         static int demo_target_x = -1;
         demo_move_timer++;
@@ -55,11 +54,9 @@ void player_input_update(player_input_t* in)
         if (px < demo_target_x - 2) {
             left = 0;
             right = 1;
-            demo_dir = 1;
         } else if (px > demo_target_x + 2) {
             left = 1;
             right = 0;
-            demo_dir = -1;
         } else {
             /* reached target — clear target to pick a new one next interval */
             left = 0;

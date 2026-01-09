@@ -10,7 +10,7 @@
 #include "bases.h"
 // --- CONFIGURATION ---
 // Sprite Pointer is defined in config.h (MISSILE_SPRITE_PTR)
-#define MISSILE_SPEED       2   // Pixels per frame
+#define MISSILE_SPEED       4   // Pixels per frame
 #define MISSILE_COLOR       VCOL_WHITE
 
 // --- STATE ---
