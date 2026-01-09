@@ -93,7 +93,7 @@ void game_over(void);
 #define DEMO_MAX_X 320
 #endif
 
-/* Demo player X bounds (pixels) — should match player.c MIN_X / MAX_X */
+/* Debug info display toggle */
 #ifndef DEBUG_INFO_ENABLED
 #define DEBUG_INFO_ENABLED 1    /* Set to 1 to enable on-screen debug info */
 #endif
