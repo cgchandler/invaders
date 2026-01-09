@@ -58,7 +58,6 @@ extern byte* const Sprites;
 // Screen Geometry for Collision
 #define SCREEN_LEFT_EDGE    24   // Pixel X of left edge of screen
 #define SCREEN_TOP_EDGE     50   // Pixel Y of top edge of screen
-#define SCREEN_BOTTOM_ROW   24   // Row Y of bottom edge of screen
 
 /* Display helpers implemented in `invaders.c` */
 void update_score_display(void);
