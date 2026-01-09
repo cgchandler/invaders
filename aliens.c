@@ -4,6 +4,7 @@
 #include <c64/types.h>
 #include "player.h"
 #include "bases.h"
+#include "config.h"
 
 // --- CONFIGURATION ---
 #define START_ROW       2
@@ -41,12 +42,20 @@ static const unsigned char ALIEN_CHARS[3][2][2] = {
     { {128, 129}, {134, 135} }
 };
 
-static const unsigned char SPEED_TABLE[57] = {
-    2, 2, 2, 3, 3, 4, 4, 5, 5, 6,       
-    6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 
-    13, 13, 14, 14, 15, 16, 17, 18, 19, 20, 21, 22, 
-    24, 26, 28, 29, 30, 30, 31, 32, 33, 34, 35, 36, 
-    37, 38, 39, 40, 41, 42, 43, 44, 45, 56                      
+// non-linear speed table based on number of alive aliens
+// quadratic ease-in curve formula: speed = 2 + ( (n * n) * 28 ) / (55 * 55);
+static const unsigned char SPEED_TABLE[55] = {
+    2, 2, 2, 2, 2, 
+    2, 2, 2, 2, 2,
+    4, 4, 4, 4, 4, 
+    6, 6, 6, 6, 6,
+    11, 11, 11, 11, 11,
+    13, 13, 13, 13, 13,
+    16, 16, 16, 16, 16,
+    19, 19, 19, 19, 19,
+    22, 22, 22, 22, 22,
+    26, 26, 26, 26, 26,
+    30, 30, 30, 30, 30   
 };
 
 // --- STATE ---
@@ -179,18 +188,18 @@ void aliens_update(void) {
 
     sfx_march();
 
-    /*
-    unsigned char safe_count = a->alive_count;
-    if (safe_count > 55) safe_count = 55; 
+    // Calculate speed based on level and number of alive aliens
+    game_state* gs = game_get_state();
+    int speed_index = a->alive_count - 1 - gs->level;
+    if (speed_index < 0) {
+        speed_index = 0;
+    } else if (speed_index > 54) {
+        speed_index = 54;
+    }
+    int calc_speed = SPEED_TABLE[speed_index];
 
-    //a->timer = SPEED_TABLE[g_alive_count];
-    //a->timer = safe_count + 1 - (g_level - 1);   // linear speed instead of table lookup
-    //if (a->timer < 2) {a->timer = 2;}
-    */
-
-    unsigned char safe_count = a->alive_count;
-    if (safe_count > 55) safe_count = 55; 
-    
+    /* REPLACED IN FAVOR OF CALCULATION BASED ON LEVEL
+       THIS CODE HAS BEEN LEFT IN FOR REFERENCE
     // Calculate speed deduction based on level
     game_state* gs = game_get_state();
     int level_bonus = gs->level - 1;
@@ -198,6 +207,7 @@ void aliens_update(void) {
     
     int calc_speed = safe_count + 1 - level_bonus;
     if (calc_speed < 2) calc_speed = 2;
+    */
 
     // STORE IT so we can debug it without recalculating
     a->current_delay = (unsigned char)calc_speed; 
@@ -500,6 +510,10 @@ int aliens_get_random_shooter(int* out_x, int* out_y) {
 
 // DEBUG: Display current speed (Delay Frames) on bottom right
 void aliens_debug_speed(void) {
+    /* Respect compile-time debug flag — no-op when disabled */
+#if !DEBUG_INFO_ENABLED
+    return;
+#endif
     // 1. Get the digits from our stored setting
     aliens_state* a = aliens_get_state();
     unsigned char tens = a->current_delay / 10;

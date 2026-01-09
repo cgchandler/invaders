@@ -10,13 +10,15 @@
 #include "bases.h"
 // --- CONFIGURATION ---
 // Sprite Pointer is defined in config.h (MISSILE_SPRITE_PTR)
-#define MISSILE_SPEED       2   // Pixels per frame
+#define MISSILE_SPEED       4   // Pixels per frame
 #define MISSILE_COLOR       VCOL_WHITE
 
 // --- STATE ---
 static missile_state s_missile_state = { 0 };
 
 static inline missile_state* _mstate(void) { return &s_missile_state; }
+
+static unsigned demo_fire_counter = 0;
 
 // Need access to Player X to know where to fire from (provided via player.h macros)
 
@@ -88,6 +90,11 @@ static int check_grid_hit_from_sprite(unsigned int sprite_x, unsigned int pixel_
 void missile_init(void) {
     missile_state* m = _mstate();
     m->active = 0;
+
+    /* Reset previous fire state to avoid suppressed firing when entering demo */
+    prev_fire = false;
+    
+    demo_fire_counter = 0;
     
     // Set pointer for Sprite 1 (Offset + 1 from Player)
     // Pointer table lives at Screen + 0x3F8 (1016)
@@ -109,7 +116,17 @@ void missile_update(void) {
     missile_state* m = _mstate();
     if (!m->active) {
         player_input_t input;
-        player_input_update(&input);
+        game_state* gs = game_get_state();
+        if (gs->mode == MODE_DEMO) {
+            /* Simulate occasional firing during demo mode */
+            demo_fire_counter++;
+            input.left = 0;
+            input.right = 0;
+            input.fire = (demo_fire_counter % DEMO_FIRE_INTERVAL) == 0;
+        } else {
+            player_input_update(&input);
+        }
+
         if (input.fire && !prev_fire) {
             m->active = 1;
             sfx_fire_missile();

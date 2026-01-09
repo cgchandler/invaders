@@ -12,7 +12,8 @@ game_state g_game_state = {
     .level = 1,
     .max_lives = 18,
     .mode = MODE_INTRO,
-    .control = KEYBOARD
+    .control = KEYBOARD,
+    .demo = 0
 };
 
 game_state* game_get_state(void) {
