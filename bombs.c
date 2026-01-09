@@ -107,8 +107,8 @@ void bombs_update(void) {
                     int col1 = (int)(px1 - SCREEN_LEFT_EDGE) / 8;
                     int col2 = (int)(px2 - SCREEN_LEFT_EDGE) / 8;
                     if (row >= 0 && row < 25) {
-                        if ((col1 >= 0 && col1 < 40 && bases_check_hit((unsigned char)col1, (unsigned char)row)) ||
-                            (col2 >= 0 && col2 < 40 && bases_check_hit((unsigned char)col2, (unsigned char)row))) {
+                        if ((col1 >= 0 && col1 < 40 && bases_check_hit((unsigned char)col1, (unsigned char)row, false)) ||
+                            (col2 >= 0 && col2 < 40 && bases_check_hit((unsigned char)col2, (unsigned char)row, false))) {
                             b->active[i] = 0;
                             vic.spr_enable &= ~(1 << (FIRST_SPRITE + i));
                             continue;

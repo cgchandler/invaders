@@ -70,13 +70,13 @@ static int check_grid_hit_from_sprite(unsigned int sprite_x, unsigned int pixel_
         // If a base exists on the row below, damage that first.
         int lower_row = row + 1;
         if (lower_row < 25) {
-            if (bases_check_hit((unsigned char)col, (unsigned char)lower_row)) {
+            if (bases_check_hit((unsigned char)col, (unsigned char)lower_row, false)) {
                 return 1;
             }
         }
 
         // Then check the computed row
-        if (bases_check_hit((unsigned char)col, (unsigned char)row)) {
+        if (bases_check_hit((unsigned char)col, (unsigned char)row, false)) {
             return 1;
         }
     }

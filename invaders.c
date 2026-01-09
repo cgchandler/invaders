@@ -100,7 +100,7 @@ void update_score_display(void)
     Screen[offset]     = 48 + (unsigned char)((temp / 100000) % 10);
     Screen[offset + 1] = 48 + (unsigned char)((temp / 10000) % 10);
     Screen[offset + 2] = 48 + (unsigned char)((temp / 1000) % 10);
-    Screen[offset + 3] = 48 + (unsigned char)((temp / 100   ) % 10);
+    Screen[offset + 3] = 48 + (unsigned char)((temp / 100) % 10);
     Screen[offset + 4] = 48 + (unsigned char)((temp / 10) % 10);
     Screen[offset + 5] = 48 + (unsigned char)(temp % 10);    
 }
@@ -499,6 +499,12 @@ static void game_update(void)
         bombs_init();
         bonus_reset();
 
+        // Reset Player Position
+        player_init();
+
+        // Redraw the ground which may have been partially erased by aliens
+        draw_ground();        
+
         gs->shots_fired = 0;
 
         // display the level number sequence if we're on the game play screen
@@ -520,6 +526,7 @@ static void game_render(void)
     missile_render();
     bombs_render();
     bonus_render();
+    draw_ground();
 
     // output control method to screen for debugging
     game_state* gs = game_get_state();

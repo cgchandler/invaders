@@ -21,6 +21,6 @@ void bases_render(void);
 
 /* Check if a grid cell (col,row) contains a base block. If so, destroy that
    character and return 1, otherwise return 0. */
-int bases_check_hit(unsigned char col, unsigned char row);
+int bases_check_hit(unsigned char col, unsigned char row, bool destroy_on_hit);
 
 #endif /* BASES_H */

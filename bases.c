@@ -115,7 +115,7 @@ void bases_render(void) {
     }
 }
 
-int bases_check_hit(unsigned char col, unsigned char row) {
+int bases_check_hit(unsigned char col, unsigned char row, bool destroy_on_hit) {
     /* Quick bounds check for the rows we care about */
 
     if (row != BASE_TOP_ROW && row != BASE_BOTTOM_ROW) return 0;
@@ -139,7 +139,12 @@ int bases_check_hit(unsigned char col, unsigned char row) {
     if (cur_stage >= BASE_DAMAGE_STAGES) return 0; /* already destroyed */
 
     /* Increment damage stage */
-    cur_stage++;
+    if (destroy_on_hit) {
+        cur_stage = BASE_DAMAGE_STAGES;
+    }
+    else {
+        cur_stage++;
+    }
     base_stage[idx][row_idx][local_c] = cur_stage;
 
     unsigned short offset = (row * 40) + sc + local_c;
