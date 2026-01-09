@@ -18,6 +18,8 @@ static missile_state s_missile_state = { 0 };
 
 static inline missile_state* _mstate(void) { return &s_missile_state; }
 
+static unsigned demo_fire_counter = 0;
+
 // Need access to Player X to know where to fire from (provided via player.h macros)
 
 // --- HELPERS ---
@@ -92,6 +94,8 @@ void missile_init(void) {
     /* Reset previous fire state to avoid suppressed firing when entering demo */
     prev_fire = false;
     
+    demo_fire_counter = 0;
+    
     // Set pointer for Sprite 1 (Offset + 1 from Player)
     // Pointer table lives at Screen + 0x3F8 (1016)
     byte* ptrs = (byte*)(Screen + 1016);
@@ -115,7 +119,6 @@ void missile_update(void) {
         game_state* gs = game_get_state();
         if (gs->mode == MODE_DEMO) {
             /* Simulate occasional firing during demo mode */
-            static unsigned demo_fire_counter = 0;
             demo_fire_counter++;
             input.left = 0;
             input.right = 0;
