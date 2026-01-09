@@ -1,5 +1,5 @@
 # C64 Invaders Game
-**A full-featured Space Invaders inspired game for the Commodore 64, writtenin C using the Oscar64 compiler.**
+**A full-featured Space Invaders inspired game for the Commodore 64, written in C using the Oscar64 compiler.**
 
 ## Overview
 This project is a Space Invaders inspired game built for the Commodore 64 in C, compiled using the [Oscar64 compiler](https://github.com/drmortalwombat/oscar64).
@@ -9,6 +9,9 @@ The game runs on:
 * [VICE](https://vice-emu.sourceforge.io/) or other C64 emulators
 
 ## Screenshots
+![Intro Screen](screenshot\_intro.jpg "Intro Screen")
+
+![Game Play](screenshot\_game\_play.jpg "Game Play")
 
 ## Features
 
@@ -18,10 +21,18 @@ The game runs on:
 * Joystick button or space bar to fire weapon
 
 ### Gameplay
+* Alien swarm attacks planet
+* Aliens kill player by collision or a bomb launched during attack
+* Player protects planet with missle launches
+* Destructible player bases provide cover
+* Alien speed increases as swam size decreases
+* Game ends when aliens reach ground or all reserve players are lost
 
 ### Display \& HUD
-
-### SID Sound Effects
+* Current Score
+* High Score
+* Level #
+* Reserve Player Ships
 
 ## Build \& Run
 
@@ -33,4 +44,4 @@ The game runs on:
 * from the command line "make.bat"
 
 ## Play Online
-[Play Snake online running in Vice.js](https://www.cehost.com/snake/)
+[Play Invaders online running in Vice.js](https://www.cehost.com/invaders/)
