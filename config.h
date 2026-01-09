@@ -67,6 +67,37 @@ void update_level(void);
 /* Game control */
 void game_over(void);
 
+/* Attract / Demo mode timeout in frames (60Hz). After this many frames
+ * on the intro screen the demo will auto-start and will run for the same
+ * duration before returning to the intro screen.
+ */
+#ifndef INTRO_DEMO_TIMEOUT_FRAMES
+#define INTRO_DEMO_TIMEOUT_FRAMES 600 /* ~10 seconds at 60Hz */
+#endif
+
+/* Demo auto-fire interval in frames (when demo auto-fires missiles) */
+#ifndef DEMO_FIRE_INTERVAL
+#define DEMO_FIRE_INTERVAL 30 /* ~0.5 seconds */
+#endif
+
+/* Demo player movement interval in frames (how long to move before reversing) */
+#ifndef DEMO_MOVE_INTERVAL
+#define DEMO_MOVE_INTERVAL 60 /* ~1 second */
+#endif
+
+/* Demo player X bounds (pixels) — should match player.c MIN_X / MAX_X */
+#ifndef DEMO_MIN_X
+#define DEMO_MIN_X 24
+#endif
+#ifndef DEMO_MAX_X
+#define DEMO_MAX_X 320
+#endif
+
+/* Demo player X bounds (pixels) — should match player.c MIN_X / MAX_X */
+#ifndef DEBUG_INFO_ENABLED
+#define DEBUG_INFO_ENABLED 1    /* Set to 1 to enable on-screen debug info */
+#endif
+
 /* End of canonical config.h - see top for definitions */
 
 #endif /* CONFIG_H */

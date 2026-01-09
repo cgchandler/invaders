@@ -68,18 +68,20 @@ void update_score_display(void)
     game_state* gs = game_get_state();
 
     // increase high score if needed
-    if (gs->score > gs->high_score) {
-        gs->high_score = gs->score;
-    }
-    
-    // Check for extra life
-    if (gs->score >= gs->next_life_score) {
-        gs->next_life_score += 1500;
-        player_state* pstate = player_get_state();
-        if (pstate->lives < gs->max_lives) {
-            pstate->lives++;
-            update_lives_display(); 
-            sfx_high_score(); 
+    if (!gs->demo) {
+        if (gs->score > gs->high_score) {
+            gs->high_score = gs->score;
+        }
+
+        // Check for extra life
+        if (gs->score >= gs->next_life_score) {
+            gs->next_life_score += 1500;
+            player_state* pstate = player_get_state();
+            if (pstate->lives < gs->max_lives) {
+                pstate->lives++;
+                update_lives_display(); 
+                sfx_high_score(); 
+            }
         }
     }
 
@@ -183,7 +185,7 @@ void update_lives_display(void)
 }
 
 static void update_level(void)
-{
+{    
     game_state* gs = game_get_state();
     unsigned char tens = gs->level / 10;
     unsigned char ones = gs->level % 10;
@@ -259,6 +261,10 @@ static void intro_draw(void);
 #define INTRO_TOGGLE_FRAMES 180 /* ~3 seconds at 60Hz */
 static unsigned intro_bonus_timer = 0;
 static unsigned char intro_bonus_state = 0; /* 0 => 50, 1 => 300 */
+/* Idle timer used to trigger attract/demo mode when on the intro screen */
+static unsigned intro_idle_timer = 0;
+/* Demo runtime timer (counts frames while in MODE_DEMO) */
+static unsigned demo_timer = 0;
 
 /* Position for bonus value on intro screen (see intro_draw layout for details).
 The bonus value text is rendered at row 14, column 22. */
@@ -380,6 +386,15 @@ static void intro_draw(void) {
     // Bonus ship sprite: enable sprite 7, red, expanded X, positioned center
     // Sprite pointer for bonus in sprites is BASE_SPRITE_PTR + BONUS_PTR_OFFSET (see bonus_ship.c)
     byte* sprite_ptrs = (byte*)(Screen + 1016);
+    // Disable all sprites to avoid artifacts from previous modes (missiles/bombs)
+    vic.spr_enable = 0;
+    // Also ensure expansion bit for bonus is cleared before reconfiguring
+    vic.spr_expand_x &= ~(1 << 7);
+
+    // Reinitialize missile/bomb state so any active sprite data is cleared
+    missile_init();
+    bombs_init();
+    bonus_reset();
     const int BONUS_SPRITE_INDEX = 7;
     const byte VIC_BANK_BASE_PTR = (byte)(((unsigned)Sprites - 0x4000) >> 6); // /64
     const byte BONUS_PTR_OFFSET  = 2; // same meaning as before
@@ -528,10 +543,12 @@ static void game_render(void)
     bonus_render();
     draw_ground();
 
+#if DEBUG_INFO_ENABLED
+    /* Respect compile-time debug flag — no-op when disabled */
     // output control method to screen for debugging
     game_state* gs = game_get_state();
     draw_custom_text(24, 36, (gs->control == JOYSTICK) ? "J" : "K", VCOL_WHITE);
-
+#endif
 }
 
 int main(void)
@@ -561,15 +578,32 @@ int main(void)
             }
             if (fire_pressed || space_pressed) {
 
+                /* Reset idle timer since user started a game */
+                intro_idle_timer = 0;
                 // Set control method based on input used to start game
                 gs->control = (fire_pressed) ? JOYSTICK : KEYBOARD;
 
-                // Clear intro elements and prepare playfield
+                // Full game reset so a play started after demo begins fresh
+                gs->score = 0;
+                gs->high_score = gs->high_score; /* preserve high score */
+                gs->next_life_score = 1500;
+                gs->shots_fired = 0;
+                gs->level = 1;
+
+                // Reset player lives to defaults
+                player_state* pstate = player_get_state();
+                pstate->lives = pstate->default_lives;
+
+                // Prepare playfield and modules
                 screen_init();
+                update_score_display();
                 update_lives_display();
                 update_level();
 
-                // Reinitialize sprite modules/pointers that were cleared by screen_init()
+                // Reinitialize game entities
+                clear_playfield();
+                aliens_init();
+                bases_init();
                 player_init();
                 missile_init();
                 bombs_init();
@@ -585,13 +619,76 @@ int main(void)
                 gs->mode = MODE_PLAY;
 
             } else {
+                /* No input — increment idle timer and possibly start demo */
                 intro_update();
                 intro_render();
+
+                intro_idle_timer++;
+                if (intro_idle_timer >= INTRO_DEMO_TIMEOUT_FRAMES) {
+                    /* Auto-start demo/game: prepare playfield then enter DEMO mode */
+                    intro_idle_timer = 0;
+
+                    // Use keyboard as default control for demo
+                    gs->control = KEYBOARD;
+
+                    screen_init();
+                    update_lives_display();
+                    update_level();
+
+                    player_init();
+                    missile_init();
+                    bombs_init();
+                    bonus_init();
+
+                    vic.spr_expand_x &= ~(1 << 7);
+                    vic.spr_enable &= ~(1 << 7);
+                    vic.spr_enable |= 1;
+
+                    // Show level then begin demo play
+                    //level_display_sequence();
+                    gs->mode = MODE_DEMO;
+                    gs->demo = 1;
+                    demo_timer = 0;
+                }
             }
 
         } else {
+            /* If we're in DEMO mode, allow user input to abort back to intro
+             * and track demo runtime for automatic return to intro. */
+            if (gs->mode == MODE_DEMO) {
+                int fire_pressed = is_fire_pressed_local();
+                int space_pressed = 0;
+                if (!fire_pressed) space_pressed = is_space_pressed_local();
+                if (fire_pressed || space_pressed) {
+                    /* Abort demo and return to intro immediately */
+                    gs->mode = MODE_INTRO;
+                    gs->demo = 0;
+                    intro_idle_timer = 0;
+                    demo_timer = 0;
+                    intro_draw();
+                    continue;
+                }
+            }
+
             game_input();
             game_update();
+
+            if (gs->mode == MODE_DEMO) {
+                demo_timer++;
+                if (demo_timer >= INTRO_DEMO_TIMEOUT_FRAMES) {
+                    /* End demo and return to intro */
+                    gs->demo = 0;
+                    gs->mode = MODE_INTRO;
+                    gs->score = 0;
+                    gs->next_life_score = 1500;
+                    gs->shots_fired = 0;
+                    update_score_display();
+                    intro_draw();
+                    intro_idle_timer = 0;
+                    demo_timer = 0;
+                    continue;
+                }
+            }
 
             /* Only perform the modal sequence when the mode changed from
              * PLAY -> LEVEL_DISPLAY this frame. This prevents accidental
@@ -612,7 +709,7 @@ int main(void)
 
             }
            
-            if (gs->mode == MODE_PLAY) {
+            if (gs->mode == MODE_PLAY || gs->mode == MODE_DEMO) {
                 game_render();
             } else {
                 /* Any other non-play mode (including MODE_INTRO) should

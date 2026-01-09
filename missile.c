@@ -88,6 +88,9 @@ static int check_grid_hit_from_sprite(unsigned int sprite_x, unsigned int pixel_
 void missile_init(void) {
     missile_state* m = _mstate();
     m->active = 0;
+
+    /* Reset previous fire state to avoid suppressed firing when entering demo */
+    prev_fire = false;
     
     // Set pointer for Sprite 1 (Offset + 1 from Player)
     // Pointer table lives at Screen + 0x3F8 (1016)
@@ -109,7 +112,18 @@ void missile_update(void) {
     missile_state* m = _mstate();
     if (!m->active) {
         player_input_t input;
-        player_input_update(&input);
+        game_state* gs = game_get_state();
+        if (gs->mode == MODE_DEMO) {
+            /* Simulate occasional firing during demo mode */
+            static unsigned demo_fire_counter = 0;
+            demo_fire_counter++;
+            input.left = 0;
+            input.right = 0;
+            input.fire = (demo_fire_counter % DEMO_FIRE_INTERVAL) == 0;
+        } else {
+            player_input_update(&input);
+        }
+
         if (input.fire && !prev_fire) {
             m->active = 1;
             sfx_fire_missile();

@@ -10,9 +10,10 @@
 /* Game modes used by `game_state` */
 typedef enum {
     MODE_INTRO = 0,
-    MODE_PLAY = 1,
-    MODE_GAME_OVER = 2,
-    MODE_LEVEL_DISPLAY = 3
+    MODE_DEMO = 1,
+    MODE_PLAY = 2,
+    MODE_GAME_OVER = 3,
+    MODE_LEVEL_DISPLAY = 4
 } game_mode_t;
 
 typedef enum {
@@ -30,6 +31,7 @@ typedef struct {
     unsigned char max_lives;
     game_mode_t mode;       // Current game mode
     game_control_t control; // Input method
+    unsigned char demo;     // Non-zero when running in attract/demo mode
 } game_state;
 
 extern game_state g_game_state;
