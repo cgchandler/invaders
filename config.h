@@ -95,7 +95,7 @@ void game_over(void);
 
 /* Debug info display toggle */
 #ifndef DEBUG_INFO_ENABLED
-#define DEBUG_INFO_ENABLED 1    /* Set to 1 to enable on-screen debug info */
+#define DEBUG_INFO_ENABLED 0    /* Set to 1 to enable on-screen debug info */
 #endif
 
 /* End of canonical config.h - see top for definitions */
