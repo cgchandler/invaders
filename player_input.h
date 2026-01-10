@@ -1,3 +1,6 @@
+// © 2026 Christopher G Chandler
+// Licensed under the MIT License. See LICENSE file in the project root.
+
 #ifndef PLAYER_INPUT_H
 #define PLAYER_INPUT_H
 

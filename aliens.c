@@ -1,3 +1,6 @@
+// © 2026 Christopher G Chandler
+// Licensed under the MIT License. See LICENSE file in the project root.
+
 #include "aliens.h"
 #include <stdlib.h>
 #include <c64/vic.h>

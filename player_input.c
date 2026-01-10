@@ -1,3 +1,6 @@
+// © 2026 Christopher G Chandler
+// Licensed under the MIT License. See LICENSE file in the project root.
+
 #include "player_input.h"
 #include <c64/keyboard.h>
 #include <c64/joystick.h>

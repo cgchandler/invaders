@@ -1,3 +1,6 @@
+// © 2026 Christopher G Chandler
+// Licensed under the MIT License. See LICENSE file in the project root.
+
 #ifndef BONUS_SHIP_H
 #define BONUS_SHIP_H
 

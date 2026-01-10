@@ -1,3 +1,6 @@
+// © 2026 Christopher G Chandler
+// Licensed under the MIT License. See LICENSE file in the project root.
+
 #include "game.h"
 
 /* Define the canonical game-state structure. Other modules should use

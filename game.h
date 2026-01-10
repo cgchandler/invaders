@@ -1,6 +1,5 @@
-/* game.h
- * Centralized runtime game state accessor.
- */
+// © 2026 Christopher G Chandler
+// Licensed under the MIT License. See LICENSE file in the project root.
 
 #ifndef GAME_H
 #define GAME_H
