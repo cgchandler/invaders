@@ -14,10 +14,22 @@ The game runs on:
 ![Game Play](screenshot_game_play.jpg "Game Play")
 
 ## Features
+* Intro Screen
+* Attract Mode
+* Animated Starfield Background
+* SID Sound Effects
+* Joystick and Keyboard Input Support
+* Progressive Level Difficulty
+* Classic Space-Invaders-Style Alien Formations
+* Score and High Score Display
+* Player Lives System
+* Raster Timed Rendering
+* Hardware Sprites
+* Custom Character Set
 
 ### Controls
-* Joystick in \*\*Port 2\*\*
-* Keyboard controls using \*\*A / D\*\*
+* Joystick in **Port 2**
+* Keyboard controls using **A/D** and **Left/Right Cursor**
 * Joystick button or space bar to fire weapon
 
 ### Gameplay
@@ -45,3 +57,11 @@ The game runs on:
 
 ## Play Online
 [Play Invaders online running in Vice.js](https://www.cehost.com/invaders/)
+
+## License
+
+This project is licensed under the MIT License.
+
+You are free to use, modify, and distribute this software for personal or commercial purposes, provided that the original copyright notice and license text are included with any substantial portions of the code.
+
+See the [LICENSE](LICENSE) file for full details.

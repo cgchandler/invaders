@@ -1,3 +1,6 @@
+// © 2026 Christopher G Chandler
+// Licensed under the MIT License. See LICENSE file in the project root.
+
 #include "missile.h"
 #include "aliens.h"  // To report hits
 #include "bonus_ship.h" // report bonus ship hits

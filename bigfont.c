@@ -1,3 +1,6 @@
+// © 2026 Christopher G Chandler
+// Licensed under the MIT License. See LICENSE file in the project root.
+
 #include "bigfont.h"
 #include <c64/vic.h>
 #include "config.h"

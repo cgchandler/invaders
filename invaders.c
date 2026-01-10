@@ -1,3 +1,6 @@
+// © 2026 Christopher G Chandler
+// Licensed under the MIT License. See LICENSE file in the project root.
+
 #include <c64/vic.h>
 #include <c64/types.h>
 #include "player_input.h"
@@ -380,7 +383,7 @@ static void intro_draw(void) {
     draw_big_text_at(0, 3, "INVADERS", VCOL_YELLOW, 1);
 
     // Author name - row 8
-    draw_custom_text(10, 13, "COPYRIGHT 2026", VCOL_CYAN);
+    draw_custom_text(10, 11, "COPYRIGHT (C) 2026", VCOL_CYAN);
     draw_custom_text(12, 13, "CHRIS CHANDLER", VCOL_CYAN);
 
     // Bonus ship sprite: enable sprite 7, red, expanded X, positioned center
