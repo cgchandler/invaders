@@ -187,7 +187,7 @@ void sfx_game_over(void)
     s->ufo_active = 0;
     SID_V2_CTRL = 0;
 
-    s->v2_mode  = 2;        
+    s->v2_mode  = 2;
     s->v2_freq  = 0x1C00;
     s->v2_timer = 60; 
 
@@ -276,14 +276,14 @@ static void sfx_ufo_update(void)
 
     s->ufo_tick++;
 
-    // 32-frame ramp (very fast, Galaga-fast)
+    // 64-frame ramp
     unsigned char phase = (unsigned char)(s->ufo_tick & 0x3F);
 
     // Siren parameters
     const unsigned int base  = 0x1000;  // low end
     const unsigned int depth = 0x3000;  // sweep size
 
-    // Map phase (0..127) -> 0..depth
+    // Map phase to frequency offset
     unsigned int offset = (depth * (unsigned int)phase) / 64;
     unsigned int f = base + offset;
 
@@ -328,18 +328,16 @@ void sound_update(void) {
     if (s->v1_timer > 0) {
         s->v1_timer--;
 
-        if (s->v2_mode == 1) {
-            // Explosion sweep: drop noise frequency over time to add "thud"
-            const unsigned int end_freq = 0x0800;
-
-            if (s->v2_freq > end_freq + 0x0040) {
-                s->v2_freq -= 0x0120; // bigger = faster drop (more punch)
+        if (s->v1_mode == 1) {
+            const unsigned int end_freq = 0x0A00;
+            if (s->v1_freq > end_freq + 0x0080) {
+                s->v1_freq -= 0x0220;
             } else {
-                s->v2_freq = end_freq;
+                s->v1_freq = end_freq;
             }
 
-            SID_V2_FREQ_LO = (unsigned char)(s->v2_freq & 0xFF);
-            SID_V2_FREQ_HI = (unsigned char)(s->v2_freq >> 8);
+            SID_V1_FREQ_LO = (unsigned char)(s->v1_freq & 0xFF);
+            SID_V1_FREQ_HI = (unsigned char)(s->v1_freq >> 8);
         }
 
         if (s->v1_timer == 0) {
@@ -353,10 +351,11 @@ void sound_update(void) {
         s->v2_timer--;
 
         if (s->v2_mode == 1) {
-            // Player die: faster downward sweep with clamp
-            const unsigned int end_freq = 0x0400;
+            // Explosion sweep: drop noise frequency over time to add "thud"
+            const unsigned int end_freq = 0x0800;
+
             if (s->v2_freq > end_freq + 0x0040) {
-                s->v2_freq -= 0x0080;
+                s->v2_freq -= 0x0120; // bigger = faster drop (more punch)
             } else {
                 s->v2_freq = end_freq;
             }
