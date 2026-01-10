@@ -715,6 +715,9 @@ int main(void)
                  */
                 intro_render();
             }
+
+            // update the sound system every frame
+            sound_update();
         }
     }
 

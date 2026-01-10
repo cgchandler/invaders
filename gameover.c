@@ -10,6 +10,7 @@
 static void wait_frames(int frames) {
     for (int i = 0; i < frames; i++) {
         vic_waitFrame();
+        sound_update(); // Keep sound engine running during waits
     }
 }
 

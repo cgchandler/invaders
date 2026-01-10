@@ -4,6 +4,7 @@
 #include <c64/types.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include "sounds.h"
 
 // --- CONSTANTS ---
 #define BONUS_SPRITE_INDEX   7        // Reserved 8th sprite
@@ -23,10 +24,10 @@
 #define STATE_EXPLODING      2
 #define STATE_SHOW_SCORE     3
 
-#define SPAWN_RATE           500      
-#define MOVE_SPEED           1        
-#define EXPLOSION_SPEED      20        
-#define SCORE_SHOW_TIME      150       
+#define SPAWN_RATE           500      // 1 in N chance per frame to spawn   
+#define MOVE_SPEED           1       // Pixels per frame
+#define EXPLOSION_SPEED      20      // Frames per explosion frame    
+#define SCORE_SHOW_TIME      150     // Frames to show score after explosion
 
 #define BONUS_ACTIVE_Y_OFFSET   0   // 0 if your ship pixels start at top of sprite
 #define BONUS_ACTIVE_HEIGHT     8   // ship is only 8 pixels tall
@@ -47,6 +48,9 @@ void bonus_init(void) {
     vic.spr_expand_x &= ~(1 << BONUS_SPRITE_INDEX);
     vic.spr_expand_y &= ~(1 << BONUS_SPRITE_INDEX);
     vic.spr_enable   &= ~(1 << BONUS_SPRITE_INDEX);
+
+    /* Stop any UFO siren that might still be active (safety for mode switches) */
+    sfx_ufo_stop();
 }
 
 void bonus_reset(void) {
